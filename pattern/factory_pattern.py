@@ -10,9 +10,9 @@ from core.kiosk import Kiosk
 from core.kiosk_interface import KioskInterface
 from hardware.hardware_factory import HardwareFactory
 from payment.adapter import UPIAdapter, CardAdapter, DigitalWalletAdapter
-from inventory.product import Product
-from inventory.bundle import ProductBundle
-from inventory.inventory import Inventory
+from product.product import Product
+from product.bundle import ProductBundle
+from product.inventory import Inventory
 
 
 class KioskFactory:
