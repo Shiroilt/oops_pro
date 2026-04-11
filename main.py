@@ -16,13 +16,13 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from patterns.factory_pattern import KioskFactory
+from pattern.factory_pattern import KioskFactory
 from hardware.dispenser import (
     BaseDispenser, RefrigerationModule, SolarModule, NetworkModule
 )
 from payment.adapter import UPIAdapter, CardAdapter, DigitalWalletAdapter
-from inventory.product import Product
-from inventory.bundle import ProductBundle
+from product.product import Product
+from product.bundle import ProductBundle
 from core.central_registry import CentralRegistry
 
 
