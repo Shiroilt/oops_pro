@@ -1,8 +1,11 @@
 """
-DESIGN PATTERN: Factory Method (stub for final submission)
+DESIGN PATTERN: Factory Method
 File: hardware/hardware_factory.py
-Purpose: Creates pre-configured hardware setups for different kiosk types.
-         Encapsulates the decorator stacking logic in one place.
+
+Purpose:
+This module creates ready-to-use hardware setups for different kiosk types.
+It centralizes how hardware decorators are combined, so other parts of the
+system don’t need to worry about configuration details.
 """
 
 from hardware.dispenser import (
@@ -13,53 +16,62 @@ from hardware.sensor import SensorArray
 
 class HardwareFactory:
     """
-    Factory that builds pre-configured hardware stacks for each kiosk type.
-    Clients receive a fully decorated KioskHardware without knowing the details.
+    Factory class responsible for building complete hardware configurations.
+    Each method returns a fully assembled hardware stack along with sensors.
     """
 
     @staticmethod
     def create_food_kiosk_hardware(kiosk_id: str):
         """
-        Food kiosk needs: refrigeration + solar + network.
-        Returns a fully decorated hardware stack.
+        Food kiosks require refrigeration, solar support, and network connectivity.
         """
-        base = BaseDispenser(kiosk_id)
-        with_fridge = RefrigerationModule(base, target_temp_c=4.0)
-        with_solar = SolarModule(with_fridge)
-        with_network = NetworkModule(with_solar, ssid="MetroNet")
-        sensors = SensorArray(kiosk_id)
-        print(f"[HardwareFactory] Food kiosk hardware built for {kiosk_id}")
-        return with_network, sensors
+        base_hw = BaseDispenser(kiosk_id)
+        fridge_hw = RefrigerationModule(base_hw, target_temp_c=4.0)
+        solar_hw = SolarModule(fridge_hw)
+        final_hw = NetworkModule(solar_hw, ssid="MetroNet")
+
+        sensor_pack = SensorArray(kiosk_id)
+
+        print(f"[HardwareFactory] Food kiosk hardware ready for {kiosk_id}")
+        return final_hw, sensor_pack
 
     @staticmethod
     def create_pharmacy_kiosk_hardware(kiosk_id: str):
         """
-        Pharmacy kiosk needs: refrigeration (for medicines) + network.
+        Pharmacy kiosks require refrigeration (for medicines) and network.
         """
-        base = BaseDispenser(kiosk_id)
-        with_fridge = RefrigerationModule(base, target_temp_c=2.0)
-        with_network = NetworkModule(with_fridge, ssid="HospitalNet")
-        sensors = SensorArray(kiosk_id)
-        print(f"[HardwareFactory] Pharmacy kiosk hardware built for {kiosk_id}")
-        return with_network, sensors
+        base_hw = BaseDispenser(kiosk_id)
+        fridge_hw = RefrigerationModule(base_hw, target_temp_c=2.0)
+        final_hw = NetworkModule(fridge_hw, ssid="HospitalNet")
+
+        sensor_pack = SensorArray(kiosk_id)
+
+        print(f"[HardwareFactory] Pharmacy kiosk hardware ready for {kiosk_id}")
+        return final_hw, sensor_pack
 
     @staticmethod
     def create_emergency_kiosk_hardware(kiosk_id: str):
         """
-        Emergency kiosk needs: solar (for off-grid power) + network.
-        No refrigeration — distributes non-perishable supplies.
+        Emergency kiosks require solar power and network connectivity.
+        No refrigeration is needed for non-perishable supplies.
         """
-        base = BaseDispenser(kiosk_id)
-        with_solar = SolarModule(base)
-        with_network = NetworkModule(with_solar, ssid="EmergencyNet")
-        sensors = SensorArray(kiosk_id)
-        print(f"[HardwareFactory] Emergency kiosk hardware built for {kiosk_id}")
-        return with_network, sensors
+        base_hw = BaseDispenser(kiosk_id)
+        solar_hw = SolarModule(base_hw)
+        final_hw = NetworkModule(solar_hw, ssid="EmergencyNet")
+
+        sensor_pack = SensorArray(kiosk_id)
+
+        print(f"[HardwareFactory] Emergency kiosk hardware ready for {kiosk_id}")
+        return final_hw, sensor_pack
 
     @staticmethod
     def create_basic_hardware(kiosk_id: str):
-        """Minimal hardware — no optional modules."""
-        base = BaseDispenser(kiosk_id)
-        sensors = SensorArray(kiosk_id)
-        print(f"[HardwareFactory] Basic hardware built for {kiosk_id}")
-        return base, sensors
+        """
+        Basic setup with only core hardware and sensors.
+        No additional modules attached.
+        """
+        base_hw = BaseDispenser(kiosk_id)
+        sensor_pack = SensorArray(kiosk_id)
+
+        print(f"[HardwareFactory] Basic hardware ready for {kiosk_id}")
+        return base_hw, sensor_pack
