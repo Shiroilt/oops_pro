@@ -4,9 +4,9 @@ Purpose: Manages the full collection of products and bundles for a kiosk.
          Handles search, stock checks, and display.
 """
 
-from inventory.product import Product
-from inventory.bundle import ProductBundle
-
+# from inventory.product import Product
+from product.bundle import ProductBundle
+from product.product import Product
 
 class Inventory:
     """
