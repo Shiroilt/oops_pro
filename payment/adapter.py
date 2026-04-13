@@ -22,7 +22,7 @@ class UPIAdapter(PaymentProcessor):
         self._upi_service = UPISystemAPI()      # incompatible adaptee
         self._vpa = vpa
 
-    def process_payment(self, amount: float, user_id: str) -> bool:
+    def process_payment(self, amount:float, user_id: str ) -> bool:
         # Translate: PaymentProcessor.process_payment → UPI.initiate_upi_payment
         return self._upi_service.initiate_upi_payment(self._vpa, amount)
 
