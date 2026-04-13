@@ -197,7 +197,7 @@ Total transactions: 6
 ```python
 class UPIAdapter(PaymentProcessor):
     def process_payment(self, amount, user_id):
-        return self._upi_api.initiate_upi_payment(self._vpa, amount)
+        return self._upi_service.initiate_upi_payment(self._vpa, amount)
 ```
 
 ---
