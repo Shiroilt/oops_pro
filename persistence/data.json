@@ -1,0 +1,258 @@
+{
+  "kiosks": {
+    "KIOSK-01": {
+      "kiosk_id": "KIOSK-01",
+      "location": "Metro Station",
+      "kiosk_type": "FoodKiosk",
+      "password": "1234",
+      "mode": "ACTIVE",
+      "payment": {
+        "type": "upi",
+        "vpa": "user@paytm"
+      },
+      "hardware_modules": [
+        "dispenser",
+        "motor",
+        "basic_power",
+        "refrigeration",
+        "solar_power",
+        "network"
+      ],
+      "inventory": [
+        {
+          "product_id": "F001",
+          "name": "Water Bottle",
+          "price": 20.0,
+          "stock": 54,
+          "requires_refrigeration": false,
+          "type": "product"
+        },
+        {
+          "product_id": "F002",
+          "name": "Sandwich",
+          "price": 60.0,
+          "stock": 20,
+          "requires_refrigeration": true,
+          "type": "product"
+        },
+        {
+          "product_id": "F003",
+          "name": "Chips",
+          "price": 25.0,
+          "stock": 40,
+          "requires_refrigeration": false,
+          "type": "product"
+        },
+        {
+          "bundle_id": "C001",
+          "name": "Meal Combo",
+          "discount_pct": 10,
+          "items": [
+            {
+              "product_id": "FC1",
+              "name": "Sandwich",
+              "price": 60.0,
+              "stock": 10,
+              "requires_refrigeration": true
+            },
+            {
+              "product_id": "FC2",
+              "name": "Chips",
+              "price": 25.0,
+              "stock": 30,
+              "requires_refrigeration": false
+            }
+          ],
+          "type": "bundle"
+        },
+        {
+          "product_id": "F001",
+          "name": "kurkure",
+          "price": 20.0,
+          "stock": 20,
+          "requires_refrigeration": false,
+          "type": "product"
+        },
+        {
+          "product_id": "F001",
+          "name": "iceslas",
+          "price": 35.0,
+          "stock": 0,
+          "requires_refrigeration": true,
+          "type": "product"
+        }
+      ]
+    }
+  },
+  "transactions": [
+    {
+      "txn_id": "5FF9A8BF",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Water Bottle",
+      "amount": 20.0,
+      "provider": "UPI (test@upi)",
+      "timestamp": "2026-04-29 06:41:26",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "RST-KIOSK-01-2026-04-29-06:41:26",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "admin_01",
+      "item": "Water Bottle",
+      "quantity": 5,
+      "timestamp": "2026-04-29 06:41:26",
+      "status": "SUCCESS",
+      "type": "RESTOCK"
+    },
+    {
+      "txn_id": "C7F3C031",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "82657B85",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "8B82D8C8",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "83DC18B2",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "ADFC34B4",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "684FBCC9",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "A5874C28",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "BB9D053B",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "D73007F8",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "BE9A3C00",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 15:12:07",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "7D52DBDF",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "iceslas",
+      "amount": 35.0,
+      "provider": "Card (VISA-1234)",
+      "timestamp": "2026-04-29 16:28:11",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "RST-KIOSK-01-2026-04-29-16:37:43",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "admin_01",
+      "item": "iceslas",
+      "quantity": 1,
+      "timestamp": "2026-04-29 16:37:43",
+      "status": "SUCCESS",
+      "type": "RESTOCK"
+    },
+    {
+      "txn_id": "B8DE6257",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "user_01",
+      "item": "iceslas",
+      "amount": 35.0,
+      "provider": "UPI (user@paytm)",
+      "timestamp": "2026-04-29 16:38:55",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    }
+  ],
+  "config": {},
+  "events": [
+    "[2026-04-29 16:37:43] [KIOSK-01] RESTOCKED: 'iceslas' +1 units",
+    "[2026-04-29 16:38:55] [KIOSK-01] LOW STOCK: 'iceslas' has only 0 units left",
+    "[2026-04-29 16:38:55] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 purchase limits enforced"
+  ]
+}
