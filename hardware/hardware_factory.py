@@ -38,3 +38,16 @@ class HardwareFactory:
         hw   = SolarModule(base)
         hw   = NetworkModule(hw, ssid="EmergencyNet")
         return hw, SensorArray(kiosk_id)
+
+    @staticmethod
+    def create_custom_hardware(kiosk_id: str, modules: list,
+                               ssid: str = "CityNet"):
+        """Admin-configured hardware from a list of module names."""
+        hw = BaseDispenser(kiosk_id)
+        if "refrigeration" in modules:
+            hw = RefrigerationModule(hw, target_temp_c=4.0)
+        if "solar_power" in modules:
+            hw = SolarModule(hw)
+        if "network" in modules:
+            hw = NetworkModule(hw, ssid=ssid)
+        return hw, SensorArray(kiosk_id)
