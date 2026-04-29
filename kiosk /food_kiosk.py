@@ -13,3 +13,11 @@ class FoodKiosk(Kiosk):
         super().__init__(kiosk_id, location, "FoodKiosk", password)
         self._daily_limit = 10
 
+    def can_user_purchase(self, user_id: str) -> bool:
+        if self._emergency_mode:
+            return super().can_user_purchase(user_id)
+        return self._user_purchase_counts.get(user_id, 0) < self._daily_limit
+
+    def display_info(self):
+        super().display_info()
+        print(f"  Daily limit : {self._daily_limit} items/user")
