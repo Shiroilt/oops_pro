@@ -18,3 +18,11 @@ class EmergencyKiosk(Kiosk):
     def can_user_purchase(self, user_id: str) -> bool:
         collected = self._user_purchase_counts.get(user_id, 0)
         return collected < self._limit_per_person
+
+    def remaining_allowance(self, user_id: str) -> int:
+        return max(0, self._limit_per_person -
+                   self._user_purchase_counts.get(user_id, 0))
+
+    def display_info(self):
+        super().display_info()
+        print(f"  Per-person limit: {self._limit_per_person} items")
