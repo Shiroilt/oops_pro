@@ -499,3 +499,390 @@ def admin_kiosk_menu(ki: KioskInterface, admin_id: str, active_kiosks: dict):
 # ════════════════════════════════════════════════════════════
 #   USER FLOWS
 # ════════════════════════════════════════════════════════════
+
+
+def user_main_menu(active_kiosks: dict, user_id: str):
+    """User menu — vending machine operations only."""
+    while True:
+        divider(f"VENDING MACHINE — Welcome, {user_id}")
+        print(f"\n  Available kiosks: {len(active_kiosks)}")
+
+        if not active_kiosks:
+            print("\n  No vending machines available. Please contact an admin.")
+            pause()
+            return
+
+        print("\n  1. Browse & Buy from Vending Machine")
+        print("  2. View My Transactions")
+        print("  3. Exit")
+        line()
+
+        c = get_choice("  Select (1-3): ", ["1", "2", "3"])
+
+        if c == "1":
+            ki = select_kiosk(active_kiosks)
+            user_kiosk_menu(ki, user_id)
+        elif c == "2":
+            do_view_my_transactions(user_id)
+        elif c == "3":
+            print("\n  Goodbye!\n")
+            sys.exit(0)
+
+
+def user_kiosk_menu(ki: KioskInterface, user_id: str):
+    """User-facing kiosk operations."""
+    kiosk = ki._kiosk
+    while True:
+        em = " *** EMERGENCY MODE ***" if kiosk._emergency_mode else ""
+        divider(f"KIOSK: {kiosk.kiosk_id} [{kiosk.kiosk_type}]{em}")
+
+        if kiosk._emergency_mode:
+            from core.kiosk import EMERGENCY_PURCHASE_LIMIT
+            used = kiosk.get_purchase_count(user_id)
+            print(f"  Your purchases: {used} | Remaining allowance: {EMERGENCY_PURCHASE_LIMIT - used}")
+            line()
+
+        print("\n  1. View Inventory")
+        print("  2. Buy Item")
+        print("  3. Buy Combo")
+        print("  4. Refund")
+        print("  5. View My Transactions")
+        print("  6. Kiosk Info")
+        print("  0. Back")
+        line()
+
+        c = get_choice("  Select (0-6): ", ["0","1","2","3","4","5","6"])
+        if   c == "1": do_view_inventory(ki)
+        elif c == "2": do_buy_item(ki, user_id)
+        elif c == "3": do_buy_combo(ki, user_id)
+        elif c == "4": do_refund(ki, user_id)
+        elif c == "5": do_view_my_transactions(user_id)
+        elif c == "6": ki.show_kiosk_info(); pause()
+        elif c == "0": break
+
+
+# ════════════════════════════════════════════════════════════
+#   SHARED OPERATIONS
+# ════════════════════════════════════════════════════════════
+
+def select_kiosk(active_kiosks: dict) -> KioskInterface:
+    divider("SELECT VENDING MACHINE")
+    kids = list(active_kiosks.keys())
+    for i, kid in enumerate(kids, 1):
+        k = active_kiosks[kid]._kiosk
+        em = " [EMERGENCY]" if k._emergency_mode else ""
+        print(f"    {i}. {kid} — {k.kiosk_type} @ {k.location}{em}")
+    line()
+    choices = [str(i) for i in range(1, len(kids) + 1)]
+    c = get_choice("  Select kiosk: ", choices)
+    return active_kiosks[kids[int(c) - 1]]
+
+def _check_kiosk_password(ki: KioskInterface) -> bool:
+    pwd = input(f"  Enter password for kiosk '{ki._kiosk.kiosk_id}': ").strip()
+    if pwd == ki._kiosk.password:
+        return True
+    print("  Incorrect password.")
+    pause()
+    return False
+
+
+def do_view_inventory(ki: KioskInterface):
+    divider("INVENTORY")
+    ki.show_inventory()
+    pause()
+
+
+def do_buy_item(ki: KioskInterface, user_id: str):
+    """Buy an item — user selects payment method at purchase time."""
+    divider("BUY ITEM")
+    ki.show_inventory()
+
+    low = ki._kiosk._inventory.get_low_stock_items(threshold=5)
+    if low:
+        print("\n  *** LOW STOCK ALERT ***")
+        for item in low:
+            print(f"  *** '{item.get_name()}' — only {item.get_available_stock()} left! ***")
+    line()
+
+    name = ask("  Item name to buy (or 'cancel'): ", "")
+    if not name or name.lower() == "cancel":
+        return
+
+    item = ki._kiosk._inventory.find_item(name)
+    if not item:
+        print(f"\n  Item '{name}' not found.")
+        pause()
+        return
+
+    avail = item.get_available_stock()
+    if avail == 0:
+        print(f"\n  Sorry, '{name}' is out of stock.")
+        pause()
+        return
+
+    print(f"  Available: {avail} unit(s) | Price: Rs.{item.get_price():.2f} each")
+
+    if ki._kiosk._emergency_mode:
+        from core.kiosk import EMERGENCY_PURCHASE_LIMIT
+        used = ki._kiosk.get_purchase_count(user_id)
+        remaining_allowance = EMERGENCY_PURCHASE_LIMIT - used
+        print(f"  *** EMERGENCY MODE — you can buy max {remaining_allowance} more item(s) ***")
+        max_qty = min(avail, remaining_allowance)
+    else:
+        max_qty = avail
+
+    try:
+        qty = int(ask(f"  How many? (1-{max_qty}): ", "1"))
+        qty = max(1, min(qty, max_qty))
+    except ValueError:
+        qty = 1
+
+    total = item.get_price() * qty
+    print(f"\n  Order: {qty}x {name} = Rs.{total:.2f}")
+
+    # ── PAYMENT SELECTION (user chooses at purchase time) ──────────────
+    payment = PaymentSelector.select_payment()
+    if payment is None:
+        print("  Purchase cancelled.")
+        pause()
+        return
+
+    # Set on kiosk for this transaction
+    ki._kiosk.set_payment_processor(payment)
+
+    confirm = get_choice("  Confirm purchase? (y/n): ", ["y", "n"])
+    if confirm == "n":
+        print("  Purchase cancelled.")
+        pause()
+        return
+
+    result = ki.purchase_item(name, user_id, quantity=qty)
+    print(f"\n  {'Purchase successful!' if result else 'Purchase failed.'}")
+    pause()
+
+
+def do_buy_combo(ki: KioskInterface, user_id: str):
+    """Buy a combo — user selects payment at purchase time."""
+    divider("BUY COMBO")
+    inv = ki._kiosk._inventory
+
+    bundles = [item for item in inv.get_all_items() if isinstance(item, ProductBundle)]
+    if not bundles:
+        print("\n  No combos available in this kiosk.")
+        pause()
+        return
+
+    print("\n  Available Combos:")
+    for i, b in enumerate(bundles, 1):
+        print(f"    {i}. ", end="")
+        b.display(indent=0)
+    line()
+
+    choices = [str(i) for i in range(1, len(bundles) + 1)]
+    choices.append("0")
+    c = get_choice("  Select combo (0 to cancel): ", choices)
+    if c == "0":
+        return
+
+    bundle = bundles[int(c) - 1]
+
+    if not bundle.is_available():
+        print(f"\n  '{bundle.get_name()}' is not available.")
+        pause()
+        return
+
+    if not ki._kiosk.can_user_purchase(user_id):
+        print(f"\n  Emergency limit reached.")
+        pause()
+        return
+
+    # ── PAYMENT SELECTION ────────────────────────────────────────────
+    payment = PaymentSelector.select_payment()
+    if payment is None:
+        print("  Purchase cancelled.")
+        pause()
+        return
+
+    ki._kiosk.set_payment_processor(payment)
+
+    result = ki.purchase_item(bundle.get_name(), user_id)
+    if result:
+        print(f"\n  Combo '{bundle.get_name()}' purchased!")
+    else:
+        print(f"\n  Combo purchase failed.")
+    pause()
+
+
+def do_refund(ki: KioskInterface, user_id: str):
+    divider("REFUND")
+    all_txns = FileHandler.load_transactions()
+    my_txns = [t for t in all_txns
+               if t.get("user_id") == user_id
+               and t.get("kiosk_id") == ki._kiosk.kiosk_id
+               and t.get("type") == "PURCHASE"
+               and t.get("status") == "SUCCESS"]
+
+    if not my_txns:
+        print(f"\n  No refundable purchases found for '{user_id}'.")
+        pause()
+        return
+
+    print(f"\n  Your purchases at {ki._kiosk.kiosk_id}:")
+    for i, t in enumerate(my_txns[-8:], 1):
+        print(f"    {i}. [{t['txn_id']}] {t['item']:<22} "
+              f"Rs.{t['amount']:>7.2f}  ({t['timestamp'][:10]})")
+    line()
+
+    txn_id = ask("  Enter Transaction ID to refund (or 'cancel'): ", "")
+    if not txn_id or txn_id.lower() == "cancel":
+        return
+
+    valid = any(t["txn_id"] == txn_id for t in my_txns)
+    if not valid:
+        print(f"\n  Transaction '{txn_id}' not found in your purchases.")
+        pause()
+        return
+
+    result = ki.refund_transaction(txn_id, user_id)
+    print(f"\n  {'Refund successful!' if result else 'Refund failed.'}")
+    pause()
+
+
+def do_view_my_transactions(user_id: str):
+    divider(f"MY TRANSACTIONS — {user_id}")
+    all_txns = FileHandler.load_transactions()
+    my_txns = [t for t in all_txns if t.get("user_id") == user_id]
+
+    if not my_txns:
+        print(f"\n  No transactions found for '{user_id}'.")
+    else:
+        print(f"\n  {'Type':<10} {'Item':<22} {'Amount':>8}  "
+              f"{'Status':<12} {'Date'}")
+        line()
+        for t in my_txns[-15:]:
+            print(f"  {t.get('type','?'):<10} {t.get('item','?'):<22} "
+                  f"Rs.{t.get('amount',0):>6.2f}  "
+                  f"{t.get('status','?'):<12} "
+                  f"{t.get('timestamp','')[:10]}")
+        line()
+        print(f"  Total: {len(my_txns)} record(s)")
+    pause()
+
+
+def do_city_monitor():
+    divider("CITY MONITORING CENTER")
+    bus = EventBus()
+    monitor = bus.get_city_monitor()
+    monitor.display_log()
+    pause()
+
+
+def do_registry_summary():
+    divider("SYSTEM REGISTRY SUMMARY")
+    CentralRegistry().display_summary()
+    pause()
+
+
+# ── Helper: collect items interactively ───────────────────────────────────────
+
+def _collect_items() -> list:
+    items = []
+    divider("ADD ITEMS TO INVENTORY")
+    print("  Type 'done' as item name when finished.\n")
+    while True:
+        name = ask("  Item name (or 'done'): ", "")
+        if name.lower() == "done" or name == "":
+            if not items:
+                print("  At least one item is required.")
+                continue
+            break
+        try:
+            price = float(ask(f"  Price for '{name}' (Rs.): ", "0"))
+            qty   = int(ask(f"  Quantity for '{name}': ", "10"))
+        except ValueError:
+            print("  Invalid price/qty.")
+            continue
+        needs_fridge = get_choice(
+            f"  Needs refrigeration? (y/n): ", ["y", "n"]
+        ) == "y"
+        pid = f"P{len(items)+1:03d}"
+        items.append(Product(pid, name, price, qty,
+                             requires_refrigeration=needs_fridge))
+        print(f"  Added: {name} | Rs.{price:.2f} | Qty:{qty}")
+    return items
+
+
+def _collect_combos(items: list) -> list:
+    combos = []
+    divider("ADD COMBO OPTIONS")
+    print("  Combos bundle multiple items at a discount.\n")
+    add_combos = get_choice("  Add combo options? (y/n): ", ["y", "n"])
+    while add_combos == "y":
+        combo_name = ask("  Combo name: ", "")
+        if not combo_name:
+            break
+        try:
+            discount = float(ask("  Discount % (e.g. 10): ", "0"))
+        except ValueError:
+            discount = 0.0
+
+        print("\n  Available items:")
+        for i, item in enumerate(items, 1):
+            print(f"    {i}. {item.get_name()} — Rs.{item.get_price():.2f}")
+        line()
+
+        combo_items = []
+        print("  Enter item numbers. Type '0' when done.")
+        while True:
+            try:
+                choice = int(ask("  Item number (0 to finish): ", "0"))
+                if choice == 0:
+                    break
+                if 1 <= choice <= len(items):
+                    combo_items.append(items[choice - 1])
+                    print(f"  Added '{items[choice-1].get_name()}'.")
+            except ValueError:
+                break
+
+        if combo_items:
+            bid = f"C{len(combos)+1:03d}"
+            bundle = ProductBundle(bid, combo_name, discount_pct=discount)
+            for ci in combo_items:
+                bundle.add_item(ci)
+            combos.append(bundle)
+            print(f"  Combo '{combo_name}' created with {len(combo_items)} items.")
+
+        add_combos = get_choice("  Add another combo? (y/n): ", ["y", "n"])
+    return combos
+
+
+def _collect_hardware(kiosk_id: str):
+    divider("SELECT HARDWARE MODULES")
+    modules = []
+    if get_choice("  Refrigeration module? (y/n): ", ["y", "n"]) == "y":
+        modules.append("refrigeration")
+    if get_choice("  Solar power module?   (y/n): ", ["y", "n"]) == "y":
+        modules.append("solar_power")
+    if get_choice("  Network module?       (y/n): ", ["y", "n"]) == "y":
+        modules.append("network")
+    ssid = "CityNet"
+    if "network" in modules:
+        ssid = ask("  Network SSID: ", "CityNet")
+    hw, sensors = HardwareFactory.create_custom_hardware(kiosk_id, modules, ssid)
+    return hw, sensors, modules
+
+
+# ── MAIN ─────────────────────────────────────────────────────────────────────
+
+def main():
+    role, user_id = startup()
+    active_kiosks = load_saved_kiosks()
+
+    if role == "admin":
+        admin_main_menu(active_kiosks, user_id)
+    else:
+        user_main_menu(active_kiosks, user_id)
+
+
+if __name__ == "__main__":
+    main()
