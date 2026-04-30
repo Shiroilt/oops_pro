@@ -40,3 +40,40 @@ from commands.restock_command  import RestockCommand
 from city_monitor.monitor    import (EventBus, LowStockEvent, HardwareFailureEvent,
                                       EmergencyModeActivatedEvent, TransactionFailedEvent,
                                       RestockEvent, EventSubscriber, CityMonitoringCenter)
+PASS = "\033[92m PASS\033[0m"
+FAIL = "\033[91m FAIL\033[0m"
+
+def make_food_kiosk(kiosk_id="TEST-FOOD", location="TestZone"):
+    """Helper: create a ready-to-use FoodKiosk with UPI payment."""
+    ki = KioskFactory.create_food_kiosk(kiosk_id, location)
+    ki._kiosk.set_payment_processor(UPIAdapter("test@upi"))
+    return ki
+
+def make_pharmacy_kiosk(kiosk_id="TEST-PH", location="Hospital"):
+    """Helper: create a ready-to-use PharmacyKiosk with UPI payment."""
+    ki = KioskFactory.create_pharmacy_kiosk(kiosk_id, location)
+    ki._kiosk.set_payment_processor(UPIAdapter("test@upi"))
+    return ki
+
+def make_emergency_kiosk(kiosk_id="TEST-EM", location="DisasterZone"):
+    """Helper: create a ready-to-use EmergencyKiosk with UPI payment."""
+    ki = KioskFactory.create_emergency_kiosk(kiosk_id, location)
+    ki._kiosk.set_payment_processor(UPIAdapter("test@upi"))
+    return ki
+
+def fresh_product(name="Widget", price=50.0, stock=20,
+                  chilled=False, pid="P001"):
+    """Helper: create a fresh product instance."""
+    return Product(pid, name, price, stock, chilled)
+
+def fresh_registry():
+    """Helper: reset the CentralRegistry singleton."""
+    CentralRegistry._instance = None
+    registry = CentralRegistry()
+    registry.initialize()
+    return registry
+
+def fresh_event_bus():
+    """Helper: reset EventBus singleton."""
+    EventBus._instance = None
+    return EventBus()
