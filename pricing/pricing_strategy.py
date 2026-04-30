@@ -91,14 +91,22 @@ class PricingContext:
     """
 
     def __init__(self, strategy: PricingStrategy = None):
-        self._strategy = strategy or StandardPricing()
+        if strategy is not None:
+            self._strategy = strategy
+        else:
+            self._strategy = StandardPricing()
 
-    def set_strategy(self, strategy: PricingStrategy):
-        print(f"  [Pricing] Strategy → {strategy.get_name()}")
-        self._strategy = strategy
+    def set_strategy(self, new_strategy: PricingStrategy):
+        """Swaps the current pricing policy dynamically at runtime."""
+        strategy_label = new_strategy.get_name()
+        print(f"  [Pricing] Strategy → {strategy_label}")
+        self._strategy = new_strategy
 
-    def get_price(self, base_price: float) -> float:
-        return self._strategy.compute_price(base_price)
+    def get_price(self, item_base_cost: float) -> float:
+        """Calculates the final cost based on the active strategy."""
+        calculated_price = self._strategy.compute_price(item_base_cost)
+        return calculated_price
 
     def get_strategy_name(self) -> str:
+        """Returns the human-readable string identifier of the active policy."""
         return self._strategy.get_name()
