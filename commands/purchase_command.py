@@ -34,75 +34,85 @@ class PurchaseCommand(Command):
         self.txn_id     = None
 
     def execute(self) -> bool:
+        """
+        Executes the complex transactional flow for a purchase operation.
+        Guarantees atomicity via the Command pattern structure.
+        """
         import uuid
-        self.txn_id = str(uuid.uuid4())[:8].upper()
+        generated_uuid = str(uuid.uuid4())
+        self.txn_id = generated_uuid[:8].upper()
 
-        # Step 1: Check hardware dependency for chilled items
-        if (hasattr(self._item, 'requires_refrigeration')
-                and self._item.requires_refrigeration):
-            hw = self._kiosk_ref._hardware
-            if hw and "refrigeration" not in hw.get_capabilities():
-                self.status      = "FAILED"
-                self.log_message = (f"'{self.item_name}' needs refrigeration "
-                                    f"— module not installed")
-                EventBus().publish(
-                    TransactionFailedEvent(self.kiosk_id, self.log_message))
+        # Phase 1: Validate Hardware constraints
+        is_refrigerated_item = getattr(self._item, 'requires_refrigeration', False)
+        if is_refrigerated_item:
+            active_hardware = self._kiosk_ref._hardware
+            has_fridge = "refrigeration" in active_hardware.get_capabilities() if active_hardware else False
+            
+            if not has_fridge:
+                self.status = "FAILED"
+                self.log_message = f"'{self.item_name}' needs refrigeration — module not installed"
+                EventBus().publish(TransactionFailedEvent(self.kiosk_id, self.log_message))
                 print(f"  ERROR: {self.log_message}")
                 return False
 
-        # Step 2: Check stock
-        if not self._item.is_available():
-            self.status      = "FAILED"
+        # Phase 2: Inventory Availability Check
+        is_item_in_stock = self._item.is_available()
+        if not is_item_in_stock:
+            self.status = "FAILED"
             self.log_message = f"'{self.item_name}' is out of stock"
             print(f"  ERROR: {self.log_message}")
             return False
 
-        # Step 3: Reserve stock (atomic start)
+        # Phase 3: Initiate Atomic Reservation
         self._item.reserve()
         self._reserved = True
 
-        # Step 4: Compute dynamic price via Strategy
-        self.final_price = self._pricing.get_price(self._item.get_price())
+        # Phase 4: Compute Dynamic Contextual Price
+        raw_price = self._item.get_price()
+        self.final_price = self._pricing.get_price(raw_price)
 
-        # Step 5: Process payment
-        payment_ok = self._payment.process_payment(self.final_price, self.user_id)
-        if not payment_ok:
-            self.status      = "FAILED"
+        # Phase 5: Execute External Payment processing
+        is_payment_successful = self._payment.process_payment(self.final_price, self.user_id)
+        if not is_payment_successful:
+            self.status = "FAILED"
             self.log_message = "Payment failed"
-            self.undo()
-            EventBus().publish(
-                TransactionFailedEvent(self.kiosk_id, self.log_message))
+            self.undo() # Trigger atomic rollback
+            EventBus().publish(TransactionFailedEvent(self.kiosk_id, self.log_message))
             print(f"  ERROR: {self.log_message} — rolling back")
             return False
+            
         self._paid = True
 
-        # Step 6: Confirm sale (reduce actual stock)
+        # Phase 6: Finalize Stock Deduction
         self._item.confirm_sale()
         self._reserved = False
 
-        # Step 7: Check low stock and fire event
-        remaining = self._item.get_available_stock()
-        if remaining <= LOW_STOCK_THRESHOLD:
-            EventBus().publish(
-                LowStockEvent(self.kiosk_id, self.item_name, remaining))
+        # Phase 7: Evaluate Low Stock Thresholds
+        current_inventory_level = self._item.get_available_stock()
+        is_low_stock = current_inventory_level <= LOW_STOCK_THRESHOLD
+        if is_low_stock:
+            EventBus().publish(LowStockEvent(self.kiosk_id, self.item_name, current_inventory_level))
 
-        # Step 8: Log and persist
-        self.status      = "SUCCESS"
+        # Phase 8: Data Persistence and Audit Logging
+        self.status = "SUCCESS"
+        payment_method_name = self._payment.get_provider_name()
+        
         self.log_message = (f"Purchased '{self.item_name}' for "
                             f"Rs.{self.final_price:.2f} via "
-                            f"{self._payment.get_provider_name()}")
+                            f"{payment_method_name}")
 
-        FileHandler.save_transaction({
+        transaction_record = {
             "txn_id":    self.txn_id,
             "kiosk_id":  self.kiosk_id,
             "user_id":   self.user_id,
             "item":      self.item_name,
             "amount":    self.final_price,
-            "provider":  self._payment.get_provider_name(),
+            "provider":  payment_method_name,
             "timestamp": self.timestamp,
             "status":    "SUCCESS",
             "type":      "PURCHASE",
-        })
+        }
+        FileHandler.save_transaction(transaction_record)
 
         print(f"  SUCCESS: {self.log_message}")
         return True
