@@ -174,29 +174,40 @@ class Kiosk:
     # ── Serialization ─────────────────────────────────────────────────────────
 
     def to_dict(self) -> dict:
-        """Serialize kiosk state for JSON persistence."""
-        payment_dict = {}
-        if self._payment_processor and hasattr(self._payment_processor, 'to_dict'):
-            payment_dict = self._payment_processor.to_dict()
+        """
+        Produces a robust dictionary representation of the entire Kiosk state
+        suitable for serialization to persistent JSON storage.
+        """
+        # Step 1: Serialize the active payment processor (if any)
+        serialized_payment_processor = dict()
+        has_processor = self._payment_processor is not None
+        can_serialize_processor = hasattr(self._payment_processor, 'to_dict')
+        
+        if has_processor and can_serialize_processor:
+            serialized_payment_processor = self._payment_processor.to_dict()
 
-        hw_modules = []
-        if self._hardware:
-            hw_modules = self._hardware.get_capabilities()
+        # Step 2: Extract active hardware capabilities
+        active_hardware_capabilities = list()
+        if self._hardware is not None:
+            active_hardware_capabilities = self._hardware.get_capabilities()
 
-        inventory_list = []
-        if self._inventory:
-            inventory_list = self._inventory.to_list()
+        # Step 3: Snapshot the current inventory state
+        snapshot_inventory = list()
+        if self._inventory is not None:
+            snapshot_inventory = self._inventory.to_list()
 
-        return {
-            "kiosk_id":        self.kiosk_id,
-            "location":        self.location,
-            "kiosk_type":      self.kiosk_type,
-            "password":        self.password,
-            "mode":            self._state.get_mode_name(),
-            "payment":         payment_dict,
-            "hardware_modules": hw_modules,
-            "inventory":       inventory_list,
-        }
+        # Step 4: Construct the final state payload mapping
+        state_payload = dict()
+        state_payload["kiosk_id"] = self.kiosk_id
+        state_payload["location"] = self.location
+        state_payload["kiosk_type"] = self.kiosk_type
+        state_payload["password"] = self.password
+        state_payload["mode"] = self._state.get_mode_name()
+        state_payload["payment"] = serialized_payment_processor
+        state_payload["hardware_modules"] = active_hardware_capabilities
+        state_payload["inventory"] = snapshot_inventory
+
+        return state_payload
 
     # ── Display ───────────────────────────────────────────────────────────────
 
