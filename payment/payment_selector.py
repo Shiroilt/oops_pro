@@ -24,9 +24,9 @@ class PaymentSelector:
     @staticmethod
     def select_payment() -> PaymentProcessor:
         """
-        Interactively ask the user to choose a payment method.
-        Returns the configured PaymentProcessor, or None if cancelled.
+        Presents the interactive payment prompt and returns the configured adapter instance.
         """
+        # Display the main payment selection header
         print("\n  ─── SELECT PAYMENT METHOD ───────────────────────")
         print("    1. UPI     — enter your VPA (e.g. name@bank)")
         print("    2. Card    — enter your card token")
@@ -34,35 +34,38 @@ class PaymentSelector:
         print("    0. Cancel")
         print("  ─────────────────────────────────────────────────")
 
+        # Loop until a valid choice is made
         while True:
-            choice = input("  Your choice (0-3): ").strip()
+            user_input = input("  Your choice (0-3): ").strip()
 
-            if choice == "0":
+            if user_input == "0":
+                # User cancelled the payment flow
                 return None
 
-            elif choice == "1":
-                vpa = input("  UPI VPA (e.g. user@paytm): ").strip()
-                if not vpa:
-                    vpa = "user@upi"
-                processor = UPIAdapter(vpa=vpa)
-                print(f"  Payment method: UPI → {vpa}")
-                return processor
+            elif user_input == "1":
+                # Handle UPI adapter setup
+                entered_vpa = input("  UPI VPA (e.g. user@paytm): ").strip()
+                final_vpa = entered_vpa if entered_vpa else "user@upi"
+                upi_adapter = UPIAdapter(vpa=final_vpa)
+                print(f"  Payment method: UPI → {final_vpa}")
+                return upi_adapter
 
-            elif choice == "2":
-                token = input("  Card token (e.g. VISA-1234): ").strip()
-                if not token:
-                    token = "CARD-0001"
-                processor = CardAdapter(card_token=token)
-                print(f"  Payment method: Card → {token}")
-                return processor
+            elif user_input == "2":
+                # Handle Credit/Debit Card adapter setup
+                entered_token = input("  Card token (e.g. VISA-1234): ").strip()
+                final_token = entered_token if entered_token else "CARD-0001"
+                card_adapter = CardAdapter(card_token=final_token)
+                print(f"  Payment method: Card → {final_token}")
+                return card_adapter
 
-            elif choice == "3":
-                wid = input("  Wallet ID (e.g. WALLET-001): ").strip()
-                if not wid:
-                    wid = "WALLET-001"
-                processor = DigitalWalletAdapter(wallet_id=wid)
-                print(f"  Payment method: Wallet → {wid}")
-                return processor
+            elif user_input == "3":
+                # Handle Digital Wallet adapter setup
+                entered_wallet = input("  Wallet ID (e.g. WALLET-001): ").strip()
+                final_wallet = entered_wallet if entered_wallet else "WALLET-001"
+                wallet_adapter = DigitalWalletAdapter(wallet_id=final_wallet)
+                print(f"  Payment method: Wallet → {final_wallet}")
+                return wallet_adapter
 
             else:
+                # Catch-all for invalid numeric inputs
                 print("  Invalid choice. Enter 0, 1, 2, or 3.")
