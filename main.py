@@ -67,42 +67,70 @@ def ask(prompt: str, default: str = "") -> str:
 # ── Startup: Role Selection ───────────────────────────────────────────────────
 
 def startup() -> tuple:
-    """Ask role at startup. Return (role, user_id)."""
-    registry = CentralRegistry()
-    registry.initialize()
+    """
+    Initializes the system registry and handles the initial role-based
+    authentication and routing for the entire platform.
+    Returns a tuple of (role_string, user_identifier).
+    """
+    # 1. Boot up core singletons
+    system_registry = CentralRegistry()
+    system_registry.initialize()
 
-    print("\n" + "=" * 60)
-    print("   AURA RETAIL OS")
-    print("   Smart City Modular Kiosk Platform")
-    print("=" * 60)
+    # 2. Display Platform Header
+    header_bar = "=" * 60
+    os_name = "   AURA RETAIL OS"
+    os_subtitle = "   Smart City Modular Kiosk Platform"
+    
+    print(f"\n{header_bar}")
+    print(os_name)
+    print(os_subtitle)
+    print(header_bar)
 
+    # 3. Prompt for Role Selection
     print("\n  Who are you?")
     print("    1. User   — Browse & purchase from vending machines")
     print("    2. Admin  — Full system management (password required)")
     line()
-    role_choice = get_choice("  Select (1/2): ", ["1", "2"])
+    
+    valid_roles = ["1", "2"]
+    selected_role_id = get_choice("  Select (1/2): ", valid_roles)
+    
+    is_admin_selected = (selected_role_id == "2")
 
-    if role_choice == "2":
-        # Admin path: password check
-        for attempt in range(3):
-            pwd = input("  Enter admin password: ").strip()
-            if pwd == ADMIN_PASSWORD:
+    # 4. Handle Administrator Authentication Flow
+    if is_admin_selected:
+        max_login_attempts = 3
+        login_successful = False
+        
+        for current_attempt_index in range(max_login_attempts):
+            entered_password = input("  Enter admin password: ").strip()
+            
+            if entered_password == ADMIN_PASSWORD:
+                login_successful = True
                 print("\n  Admin access granted.")
-                admin_id = ask("  Admin ID (e.g. admin_01): ", "admin_01")
-                print(f"\n  Welcome, Admin {admin_id}!")
-                return "admin", admin_id
+                
+                # Fetch Admin Identity
+                provided_admin_id = ask("  Admin ID (e.g. admin_01): ", "admin_01")
+                print(f"\n  Welcome, Admin {provided_admin_id}!")
+                
+                return "admin", provided_admin_id
             else:
-                remaining = 2 - attempt
-                if remaining > 0:
-                    print(f"  Wrong password. {remaining} attempt(s) left.")
+                remaining_attempts = (max_login_attempts - 1) - current_attempt_index
+                if remaining_attempts > 0:
+                    print(f"  Wrong password. {remaining_attempts} attempt(s) left.")
                 else:
                     print("  Too many failed attempts. Switching to User mode.")
+                    # Break out to fallback to standard user flow
                     break
 
-    # User path
-    user_id = ask("Enter your User ID (e.g. user_01): ", "guest_user")
-    print(f"\n  Welcome, {user_id}!")
-    return "user", user_id
+    # 5. Handle Standard User Onboarding Flow
+    prompt_msg = "Enter your User ID (e.g. user_01): "
+    default_user = "guest_user"
+    
+    provided_user_id = ask(prompt_msg, default_user)
+    print(f"\n  Welcome, {provided_user_id}!")
+    
+    return "user", provided_user_id
 
 
 # ── Load saved kiosks ─────────────────────────────────────────────────────────
