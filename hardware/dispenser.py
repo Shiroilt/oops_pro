@@ -1,16 +1,16 @@
 """
 DESIGN PATTERN: Decorator (Structural)
 File: hardware/dispenser.py
-Purpose: Base hardware + optional modules stacked dynamically at runtime.
-         Each module (Refrigeration, Solar, Network) is a Decorator that
-         wraps and extends the hardware beneath it.
-         Hardware health affects kiosk operational status.
+Purpose: Defines base hardware and allows dynamic extension using decorators.
 
-Decorator chain example:
-  BaseDispenser
-    → RefrigerationModule(base)
-      → SolarModule(fridge)
-        → NetworkModule(solar)   ← outer hardware used by kiosk
+         Modules like Refrigeration, Solar, and Network wrap around base hardware
+         and extend functionality without modifying existing classes.
+
+         Hardware chain example:
+           BaseDispenser
+             → RefrigerationModule(base)
+               → SolarModule(fridge)
+                 → NetworkModule(solar)
 """
 
 from abc import ABC, abstractmethod
@@ -19,7 +19,10 @@ from abc import ABC, abstractmethod
 # ── Abstract Component ────────────────────────────────────────────────────────
 
 class KioskHardware(ABC):
-    """Abstract component — BaseDispenser and all Decorators implement this."""
+    """
+    Abstract base for all hardware components.
+    Both base hardware and decorators must implement this interface.
+    """
 
     @abstractmethod
     def get_status(self) -> str:
@@ -41,17 +44,16 @@ class KioskHardware(ABC):
 # ── Concrete Base Component ───────────────────────────────────────────────────
 
 class BaseDispenser(KioskHardware):
-    """Concrete component — core kiosk dispenser hardware."""
+    """Core hardware unit representing the vending mechanism."""
 
     def __init__(self, kiosk_id: str):
-        self.kiosk_id      = kiosk_id
-        self._dispenser_ok = True
-        self._motor_ok     = True
-
+        self.kiosk_id        = kiosk_id
+        self._dispenser_ok   = True
+        self._motor_ok       = True
 
     def get_status(self) -> str:
-        health = "OK" if self.is_healthy() else "FAULT"
-        return f"Dispenser:{health} Motor:{health}"
+        state = "OK" if self.is_healthy() else "FAULT"
+        return f"Dispenser:{state} Motor:{state}"
 
     def get_capabilities(self) -> list:
         return ["dispenser", "motor", "basic_power"]
@@ -68,7 +70,7 @@ class BaseDispenser(KioskHardware):
 
     def simulate_fault(self):
         self._dispenser_ok = False
-        print(f"  [Hardware] Dispenser fault simulated on {self.kiosk_id}")
+        print(f"  [Hardware] Fault injected into dispenser at {self.kiosk_id}")
 
     def to_dict(self) -> dict:
         return {"type": "base", "kiosk_id": self.kiosk_id}
@@ -78,103 +80,110 @@ class BaseDispenser(KioskHardware):
 
 class HardwareDecorator(KioskHardware):
     """
-    DECORATOR BASE: Wraps any KioskHardware and delegates all calls.
-    Subclasses override only what they extend.
+    Base decorator class.
+    Wraps a hardware object and forwards all method calls.
     """
 
-    def __init__(self, hardware: KioskHardware):
-        self._hardware = hardware
+    def __init__(self, wrapped_hw: KioskHardware):
+        self._wrapped_hw = wrapped_hw
 
     def get_status(self) -> str:
-        return self._hardware.get_status()
+        return self._wrapped_hw.get_status()
 
     def get_capabilities(self) -> list:
-        return self._hardware.get_capabilities()
+        return self._wrapped_hw.get_capabilities()
 
     def run_diagnostics(self) -> dict:
-        return self._hardware.run_diagnostics()
+        return self._wrapped_hw.run_diagnostics()
 
     def is_healthy(self) -> bool:
-        return self._hardware.is_healthy()
+        return self._wrapped_hw.is_healthy()
 
 
 # ── Concrete Decorators ───────────────────────────────────────────────────────
 
 class RefrigerationModule(HardwareDecorator):
-    """DECORATOR: Adds refrigeration capability to any hardware stack."""
+    """Adds temperature control functionality to hardware."""
 
-    def __init__(self, hardware: KioskHardware, target_temp_c: float = 4.0):
-        super().__init__(hardware)
-        self.target_temp_c   = target_temp_c
-        self._current_temp   = target_temp_c + 0.3
-        self._ok             = True
+    def __init__(self, wrapped_hw: KioskHardware, target_temp_c: float = 4.0):
+        super().__init__(wrapped_hw)
+        self.target_temp_c  = target_temp_c
+        self._current_temp  = target_temp_c + 0.3
+        self._is_ok         = True
 
     def get_status(self) -> str:
-        return (f"{self._hardware.get_status()} | "
-                f"Fridge:{self._current_temp:.1f}°C")
+        return (
+            f"{self._wrapped_hw.get_status()} | "
+            f"Fridge:{self._current_temp:.1f}°C"
+        )
 
     def get_capabilities(self) -> list:
-        return self._hardware.get_capabilities() + ["refrigeration"]
+        return self._wrapped_hw.get_capabilities() + ["refrigeration"]
 
     def run_diagnostics(self) -> dict:
-        d = self._hardware.run_diagnostics()
-        d["refrigeration"] = {
-            "status":   "OK" if self._ok else "FAULT",
+        report = self._wrapped_hw.run_diagnostics()
+        report["refrigeration"] = {
+            "status":   "OK" if self._is_ok else "FAULT",
             "temp_c":   self._current_temp,
             "target_c": self.target_temp_c,
         }
-        return d
+        return report
 
     def is_healthy(self) -> bool:
-        return self._hardware.is_healthy() and self._ok
+        return self._wrapped_hw.is_healthy() and self._is_ok
 
 
 class SolarModule(HardwareDecorator):
-    """DECORATOR: Adds solar power monitoring to any hardware stack."""
+    """Adds solar power monitoring capability."""
 
-    def __init__(self, hardware: KioskHardware):
-        super().__init__(hardware)
-        self._output_w = 85.0
+    def __init__(self, wrapped_hw: KioskHardware):
+        super().__init__(wrapped_hw)
+        self._power_output = 85.0
 
     def get_status(self) -> str:
-        return f"{self._hardware.get_status()} | Solar:{self._output_w}W"
+        return f"{self._wrapped_hw.get_status()} | Solar:{self._power_output}W"
 
     def get_capabilities(self) -> list:
-        return self._hardware.get_capabilities() + ["solar_power"]
+        return self._wrapped_hw.get_capabilities() + ["solar_power"]
 
     def run_diagnostics(self) -> dict:
-        d = self._hardware.run_diagnostics()
-        d["solar"] = {"output_watts": self._output_w, "status": "OK"}
-        return d
+        report = self._wrapped_hw.run_diagnostics()
+        report["solar"] = {
+            "output_watts": self._power_output,
+            "status": "OK",
+        }
+        return report
 
     def is_healthy(self) -> bool:
-        return self._hardware.is_healthy()
+        return self._wrapped_hw.is_healthy()
 
 
 class NetworkModule(HardwareDecorator):
-    """DECORATOR: Adds network connectivity monitoring to any hardware stack."""
+    """Adds network connectivity monitoring."""
 
-    def __init__(self, hardware: KioskHardware, ssid: str = "CityNet"):
-        super().__init__(hardware)
-        self._ssid      = ssid
-        self._signal    = -62
-        self._connected = True
+    def __init__(self, wrapped_hw: KioskHardware, ssid: str = "CityNet"):
+        super().__init__(wrapped_hw)
+        self._ssid        = ssid
+        self._signal_dbm  = -62
+        self._is_connected = True
 
     def get_status(self) -> str:
-        return (f"{self._hardware.get_status()} | "
-                f"Net:{self._ssid}({'OK' if self._connected else 'DOWN'})")
+        return (
+            f"{self._wrapped_hw.get_status()} | "
+            f"Net:{self._ssid}({'OK' if self._is_connected else 'DOWN'})"
+        )
 
     def get_capabilities(self) -> list:
-        return self._hardware.get_capabilities() + ["network"]
+        return self._wrapped_hw.get_capabilities() + ["network"]
 
     def run_diagnostics(self) -> dict:
-        d = self._hardware.run_diagnostics()
-        d["network"] = {
+        report = self._wrapped_hw.run_diagnostics()
+        report["network"] = {
             "ssid":       self._ssid,
-            "signal_dBm": self._signal,
-            "connected":  self._connected,
+            "signal_dBm": self._signal_dbm,
+            "connected":  self._is_connected,
         }
-        return d
+        return report
 
     def is_healthy(self) -> bool:
-        return self._hardware.is_healthy() and self._connected
+        return self._wrapped_hw.is_healthy() and self._is_connected

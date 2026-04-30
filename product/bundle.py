@@ -1,70 +1,94 @@
 """
-DESIGN PATTERN: Composite (Branch/Composite node)
+DESIGN PATTERN: Composite (Composite Node / Branch)
 File: product/bundle.py
-Purpose: ProductBundle contains Products or other Bundles.
-         Price, stock, availability resolve recursively through the tree.
-         Purchasing a bundle deducts ALL contained items atomically.
+Purpose: Represents a bundle that can contain multiple products
+         or even nested bundles.
+
+         Key Behavior:
+         - Price is calculated recursively
+         - Stock is determined by the minimum available child
+         - Purchase affects all contained items atomically
 """
 
 
 class ProductBundle:
     """
-    COMPOSITE BRANCH: Treats a group of items as one inventory item.
-    Supports nested bundles (bundles inside bundles — recursive tree).
+    COMPOSITE NODE:
+    Represents a grouped product unit that behaves like a single item.
+
+    Supports:
+    - Nested bundles (tree structure)
+    - Recursive price and stock calculation
     """
 
     def __init__(self, bundle_id: str, name: str, discount_pct: float = 0.0):
-        self.bundle_id   = bundle_id
-        self.name        = name
-        self.discount_pct = discount_pct
-        self._items      = []
+        self.bundle_id        = bundle_id
+        self.name             = name
+        self.discount_pct     = discount_pct
+        self._children        = []
         self.requires_refrigeration = False
 
-    def add_item(self, item):
-        self._items.append(item)
-        if getattr(item, 'requires_refrigeration', False):
+    def add_item(self, component):
+        """
+        Add a product or another bundle into this bundle.
+        """
+        self._children.append(component)
+
+        # If any child requires refrigeration, bundle also requires it
+        if getattr(component, 'requires_refrigeration', False):
             self.requires_refrigeration = True
 
-    # ── Composite interface (same as Product) ─────────────────────────────────
+    # ── Composite Interface (same behavior as Product) ─────────────────────────
 
     def get_name(self) -> str:
         return self.name
 
     def get_price(self) -> float:
-        """Price = sum of children with discount applied."""
-        total = sum(item.get_price() for item in self._items)
-        return round(total * (1 - self.discount_pct / 100), 2)
+        """
+        Total price = sum of child prices with discount applied.
+        """
+        total_price = sum(child.get_price() for child in self._children)
+        return round(total_price * (1 - self.discount_pct / 100), 2)
 
     def get_available_stock(self) -> int:
-        """Available = minimum stock across all children (bottleneck)."""
-        if not self._items:
+        """
+        Available stock = minimum stock among all children.
+        """
+        if not self._children:
             return 0
-        return min(item.get_available_stock() for item in self._items)
+        return min(child.get_available_stock() for child in self._children)
 
     def is_available(self) -> bool:
+        """
+        Bundle is available only if:
+        - stock > 0
+        - all children are available
+        """
         return self.get_available_stock() > 0 and all(
-            item.is_available() for item in self._items
+            child.is_available() for child in self._children
         )
 
-    # ── Stock operations ──────────────────────────────────────────────────────
+    # ── Stock Operations ──────────────────────────────────────────────────────
 
     def reserve(self):
-        for item in self._items:
-            item.reserve()
+        for child in self._children:
+            child.reserve()
 
     def release_reservation(self):
-        for item in self._items:
-            item.release_reservation()
+        for child in self._children:
+            child.release_reservation()
 
     def confirm_sale(self):
-        """Deduct stock from ALL contained items atomically."""
-        for item in self._items:
-            item.confirm_sale()
+        """
+        Confirm purchase by deducting stock from ALL child items.
+        """
+        for child in self._children:
+            child.confirm_sale()
 
     def restock(self, quantity: int):
-        for item in self._items:
-            if hasattr(item, 'restock'):
-                item.restock(quantity)
+        for child in self._children:
+            if hasattr(child, 'restock'):
+                child.restock(quantity)
 
     # ── Serialization ─────────────────────────────────────────────────────────
 
@@ -73,8 +97,10 @@ class ProductBundle:
             "bundle_id":    self.bundle_id,
             "name":         self.name,
             "discount_pct": self.discount_pct,
-            "items":        [item.to_dict() if hasattr(item, 'to_dict') else {}
-                             for item in self._items],
+            "items":        [
+                child.to_dict() if hasattr(child, 'to_dict') else {}
+                for child in self._children
+            ],
             "type":         "bundle",
         }
 
@@ -82,7 +108,9 @@ class ProductBundle:
 
     def display(self, indent: int = 0):
         prefix = "  " * indent
-        print(f"{prefix}[Bundle] {self.name} — Rs.{self.get_price():.2f} "
-              f"({self.discount_pct}% off) | Stock: {self.get_available_stock()}")
-        for item in self._items:
-            item.display(indent + 1)
+        print(
+            f"{prefix}[Bundle] {self.name} — Rs.{self.get_price():.2f} "
+            f"({self.discount_pct}% off) | Stock: {self.get_available_stock()}"
+        )
+        for child in self._children:
+            child.display(indent + 1)
