@@ -77,3 +77,60 @@ def fresh_event_bus():
     """Helper: reset EventBus singleton."""
     EventBus._instance = None
     return EventBus()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   1. PERSISTENCE (Section 3.2)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestPersistence(unittest.TestCase):
+    """System must persist inventory, transaction history, and config to JSON."""
+
+    def setUp(self):
+        FileHandler.clear()
+
+    def test_save_and_load_kiosk(self):
+        """Saving a kiosk dict and loading it back returns the same data."""
+        data = {"kiosk_type": "FoodKiosk", "location": "Metro", "inventory": []}
+        FileHandler.save_kiosk("K001", data)
+        loaded = FileHandler.load_kiosks()
+        self.assertIn("K001", loaded)
+        self.assertEqual(loaded["K001"]["location"], "Metro")
+
+    def test_save_and_load_transaction(self):
+        """Transactions are appended and retrievable."""
+        FileHandler.save_transaction({
+            "txn_id": "TXN-001", "kiosk_id": "K001",
+            "user_id": "u1", "item": "Water", "amount": 20.0,
+            "type": "PURCHASE", "status": "SUCCESS", "timestamp": "2024-01-01"
+        })
+        txns = FileHandler.load_transactions()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0]["txn_id"], "TXN-001")
+
+    def test_multiple_transactions_accumulate(self):
+        """Multiple saves accumulate, not overwrite."""
+        for i in range(3):
+            FileHandler.save_transaction({
+                "txn_id": f"T{i}", "kiosk_id": "K1",
+                "user_id": "u1", "item": "X", "amount": 10.0,
+                "type": "PURCHASE", "status": "SUCCESS", "timestamp": "2024-01-01"
+            })
+        self.assertEqual(len(FileHandler.load_transactions()), 3)
+
+    def test_save_config(self):
+        """Config is stored inside the JSON file."""
+        data = FileHandler.load()
+        data["config"]["max_items"] = 50
+        FileHandler.save(data)
+        reloaded = FileHandler.load()
+        self.assertEqual(reloaded["config"]["max_items"], 50)
+
+    def test_inventory_persisted_via_kiosk(self):
+        """Kiosk state including inventory is persisted on purchase."""
+        ki = make_food_kiosk("PERSIST-01")
+        ki.purchase_item("Water Bottle", "user_test")
+        saved = FileHandler.load_kiosks()
+        self.assertIn("PERSIST-01", saved)
+        inv_list = saved["PERSIST-01"].get("inventory", [])
+        names = [i["name"] for i in inv_list if i.get("type") != "bundle"]
+        self.assertIn("Water Bottle", names)
