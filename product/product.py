@@ -39,13 +39,28 @@ class Product:
 
     def get_available_stock(self) -> int:
         """
-        Derived stock:
-        total stock minus reserved units.
-        Returns 0 if required hardware is unavailable.
+        Calculates the true availability of this product.
+        This considers both the current physical stock against the reserved units,
+        as well as dynamic hardware availability (e.g. if refrigeration module fails).
         """
-        if self._is_hw_unavailable:
+        # Step 1: Immediately evaluate hardware constraints
+        is_hardware_blocking_sale = self._is_hw_unavailable
+        
+        if is_hardware_blocking_sale:
+            # If the required hardware isn't functioning, the item cannot be dispensed
             return 0
-        return max(0, self._total_stock - self._reserved_units)
+            
+        # Step 2: Calculate baseline inventory differential
+        current_physical_stock = self._total_stock
+        active_reservations = self._reserved_units
+        
+        calculated_net_stock = current_physical_stock - active_reservations
+        
+        # Step 3: Prevent negative stock edge-cases
+        if calculated_net_stock < 0:
+            return 0
+            
+        return calculated_net_stock
 
     def is_available(self) -> bool:
         return self.get_available_stock() > 0 and not self._is_hw_unavailable
@@ -99,13 +114,30 @@ class Product:
     # ── Display ───────────────────────────────────────────────────────────────
 
     def display(self, indent: int = 0):
-        prefix = "  " * indent
-        fridge_tag = " [CHILLED]" if self.requires_refrigeration else ""
-        hw_flag = " [UNAVAILABLE - no fridge]" if self._is_hw_unavailable else ""
-
+        """
+        Renders a comprehensive, indented display string for the console
+        that includes all pertinent tags, price metrics, and stock counts.
+        """
+        # Formulate structural indentation
+        indentation_spacing = "  " * indent
+        
+        # Determine appropriate tagging strings
+        refrigeration_tag = ""
+        if self.requires_refrigeration:
+            refrigeration_tag = " [CHILLED]"
+            
+        hardware_fault_tag = ""
+        if self._is_hw_unavailable:
+            hardware_fault_tag = " [UNAVAILABLE - no fridge]"
+            
+        # Fetch operational data
+        formatted_price = f"Rs.{self._unit_price:.2f}"
+        current_available_count = self.get_available_stock()
+        
+        # Construct and output final display line
         print(
-            f"{prefix}[Product] {self.name}{fridge_tag}{hw_flag} "
-            f"— Rs.{self._unit_price:.2f} | Stock: {self.get_available_stock()}"
+            f"{indentation_spacing}[Product] {self.name}{refrigeration_tag}{hardware_fault_tag} "
+            f"— {formatted_price} | Stock: {current_available_count}"
         )
 
     def __str__(self):
