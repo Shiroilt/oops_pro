@@ -28,59 +28,78 @@ class RefundCommand(Command):
         self.refund_amount = 0.0
 
     def execute(self) -> bool:
-        # Step 1: Verify transaction belongs to this user and is refundable
-        all_txns = FileHandler.load_transactions()
-        txn = next((t for t in all_txns
-                    if t.get("txn_id") == self.txn_id
-                    and t.get("user_id") == self.user_id
-                    and t.get("status") == "SUCCESS"), None)
+        """
+        Executes the transactional flow for a refund operation.
+        Verifies ownership, interacts with the payment provider,
+        and restores the inventory stock on success.
+        """
+        # Phase 1: Retrieve and validate historical transaction records
+        historical_transactions = FileHandler.load_transactions()
+        
+        target_transaction = None
+        for record in historical_transactions:
+            is_matching_txn = (record.get("txn_id") == self.txn_id)
+            is_matching_user = (record.get("user_id") == self.user_id)
+            is_successful_txn = (record.get("status") == "SUCCESS")
+            
+            if is_matching_txn and is_matching_user and is_successful_txn:
+                target_transaction = record
+                break
 
-        if not txn:
-            self.status      = "FAILED"
-            self.log_message = (f"Transaction '{self.txn_id}' not found "
-                                f"or does not belong to user '{self.user_id}'")
+        if target_transaction is None:
+            self.status = "FAILED"
+            self.log_message = f"Transaction '{self.txn_id}' not found or does not belong to user '{self.user_id}'"
             print(f"  ERROR: {self.log_message}")
             return False
 
-        self.refund_amount = txn.get("amount", 0.0)
-        self.item_name     = txn.get("item", self.item_name)
+        # Phase 2: Extract transaction payload details
+        self.refund_amount = target_transaction.get("amount", 0.0)
+        self.item_name = target_transaction.get("item", self.item_name)
 
-        # Step 2: Process refund via payment provider
-        refund_ok = self._payment.refund_payment(self.txn_id, self.refund_amount)
-        if not refund_ok:
-            self.status      = "FAILED"
+        # Phase 3: Initiate external payment refund sequence
+        is_provider_refund_successful = self._payment.refund_payment(self.txn_id, self.refund_amount)
+        if not is_provider_refund_successful:
+            self.status = "FAILED"
             self.log_message = "Payment provider rejected refund"
             print(f"  ERROR: {self.log_message}")
             return False
 
-        # Step 3: Restore stock
-        if self._item and hasattr(self._item, '_stock'):
+        # Phase 4: Reintegrate stock into available inventory
+        has_item_reference = self._item is not None
+        has_stock_attribute = hasattr(self._item, '_stock')
+        
+        if has_item_reference and has_stock_attribute:
             self._item._stock += 1
+            
         self._refund_done = True
 
-        # Step 4: Mark original transaction as REFUNDED in file
-        data = FileHandler.load()
-        for t in data["transactions"]:
-            if t.get("txn_id") == self.txn_id:
-                t["status"] = "REFUNDED"
-        FileHandler.save(data)
+        # Phase 5: Mutate global state to reflect refunded status
+        global_data_blob = FileHandler.load()
+        for transaction_entry in global_data_blob["transactions"]:
+            if transaction_entry.get("txn_id") == self.txn_id:
+                transaction_entry["status"] = "REFUNDED"
+                
+        FileHandler.save(global_data_blob)
 
-        # Step 5: Log the refund transaction
-        self.status      = "SUCCESS"
-        self.log_message = (f"Refunded '{self.item_name}' "
-                            f"Rs.{self.refund_amount:.2f} to '{self.user_id}'")
+        # Phase 6: Construct and persist the audit trail record
+        self.status = "SUCCESS"
+        self.log_message = f"Refunded '{self.item_name}' Rs.{self.refund_amount:.2f} to '{self.user_id}'"
+        
+        provider_name = self._payment.get_provider_name() if self._payment else "N/A"
 
-        FileHandler.save_transaction({
+        audit_record = {
             "txn_id":    f"REF-{self.txn_id}",
             "kiosk_id":  self.kiosk_id,
             "user_id":   self.user_id,
             "item":      self.item_name,
             "amount":    self.refund_amount,
-            "provider":  self._payment.get_provider_name() if self._payment else "N/A",
+            "provider":  provider_name,
             "timestamp": self.timestamp,
             "status":    "SUCCESS",
             "type":      "REFUND",
-        })
+        }
+        
+        FileHandler.save_transaction(audit_record)
 
         print(f"  SUCCESS: {self.log_message}")
         return True
