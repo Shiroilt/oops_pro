@@ -621,71 +621,111 @@ def do_view_inventory(ki: KioskInterface):
 
 
 def do_buy_item(ki: KioskInterface, user_id: str):
-    """Buy an item — user selects payment method at purchase time."""
+    """
+    Initiates and processes the purchase flow for a single item from the Kiosk.
+    Handles inventory checks, emergency mode rationing, and payment selection.
+    """
+    # 1. Display Header and Current Inventory
     divider("BUY ITEM")
     ki.show_inventory()
 
-    low = ki._kiosk._inventory.get_low_stock_items(threshold=5)
-    if low:
+    # 2. Check for low stock thresholds and display warnings
+    critical_stock_threshold = 5
+    low_stock_items = ki._kiosk._inventory.get_low_stock_items(threshold=critical_stock_threshold)
+    
+    if low_stock_items:
         print("\n  *** LOW STOCK ALERT ***")
-        for item in low:
-            print(f"  *** '{item.get_name()}' — only {item.get_available_stock()} left! ***")
+        for low_item in low_stock_items:
+            item_name = low_item.get_name()
+            remaining = low_item.get_available_stock()
+            print(f"  *** '{item_name}' — only {remaining} left! ***")
+            
     line()
 
-    name = ask("  Item name to buy (or 'cancel'): ", "")
-    if not name or name.lower() == "cancel":
+    # 3. Prompt User for Target Item
+    target_item_name = ask("  Item name to buy (or 'cancel'): ", "")
+    
+    # 4. Handle Cancellation
+    is_cancelled = (not target_item_name or target_item_name.lower() == "cancel")
+    if is_cancelled:
         return
 
-    item = ki._kiosk._inventory.find_item(name)
-    if not item:
-        print(f"\n  Item '{name}' not found.")
+    # 5. Validate Item Existence
+    selected_product_entity = ki._kiosk._inventory.find_item(target_item_name)
+    if selected_product_entity is None:
+        print(f"\n  Item '{target_item_name}' not found in this kiosk.")
         pause()
         return
 
-    avail = item.get_available_stock()
-    if avail == 0:
-        print(f"\n  Sorry, '{name}' is out of stock.")
+    # 6. Validate Item Physical Availability
+    available_stock_count = selected_product_entity.get_available_stock()
+    if available_stock_count == 0:
+        print(f"\n  Sorry, '{target_item_name}' is currently out of stock.")
         pause()
         return
 
-    print(f"  Available: {avail} unit(s) | Price: Rs.{item.get_price():.2f} each")
+    # 7. Display Item Pricing Details
+    unit_price = selected_product_entity.get_price()
+    print(f"  Available: {available_stock_count} unit(s) | Price: Rs.{unit_price:.2f} each")
 
-    if ki._kiosk._emergency_mode:
+    # 8. Evaluate Emergency Mode Purchase Allowances
+    is_emergency_mode_active = ki._kiosk._emergency_mode
+    max_purchasable_quantity = available_stock_count
+    
+    if is_emergency_mode_active:
         from core.kiosk import EMERGENCY_PURCHASE_LIMIT
-        used = ki._kiosk.get_purchase_count(user_id)
-        remaining_allowance = EMERGENCY_PURCHASE_LIMIT - used
-        print(f"  *** EMERGENCY MODE — you can buy max {remaining_allowance} more item(s) ***")
-        max_qty = min(avail, remaining_allowance)
-    else:
-        max_qty = avail
+        historical_user_purchase_count = ki._kiosk.get_purchase_count(user_id)
+        
+        remaining_allowance_for_user = EMERGENCY_PURCHASE_LIMIT - historical_user_purchase_count
+        print(f"  *** EMERGENCY MODE — you can buy max {remaining_allowance_for_user} more item(s) ***")
+        
+        # Clamp maximum quantity to either physical stock or user allowance
+        max_purchasable_quantity = min(available_stock_count, remaining_allowance_for_user)
 
+    # 9. Prompt User for Quantity
+    requested_quantity = 1
     try:
-        qty = int(ask(f"  How many? (1-{max_qty}): ", "1"))
-        qty = max(1, min(qty, max_qty))
+        raw_quantity_input = ask(f"  How many? (1-{max_purchasable_quantity}): ", "1")
+        parsed_quantity = int(raw_quantity_input)
+        
+        # Enforce bounds
+        bounded_quantity = max(1, min(parsed_quantity, max_purchasable_quantity))
+        requested_quantity = bounded_quantity
     except ValueError:
-        qty = 1
+        # Fallback to default safely
+        requested_quantity = 1
 
-    total = item.get_price() * qty
-    print(f"\n  Order: {qty}x {name} = Rs.{total:.2f}")
+    # 10. Calculate and Display Order Total
+    calculated_total_price = unit_price * requested_quantity
+    print(f"\n  Order: {requested_quantity}x {target_item_name} = Rs.{calculated_total_price:.2f}")
 
-    # ── PAYMENT SELECTION (user chooses at purchase time) ──────────────
-    payment = PaymentSelector.select_payment()
-    if payment is None:
-        print("  Purchase cancelled.")
+    # 11. Interactive Payment Selection Phase
+    selected_payment_processor = PaymentSelector.select_payment()
+    if selected_payment_processor is None:
+        print("  Purchase cancelled during payment selection.")
         pause()
         return
 
-    # Set on kiosk for this transaction
-    ki._kiosk.set_payment_processor(payment)
+    # Inject the selected payment strategy into the Kiosk instance
+    ki._kiosk.set_payment_processor(selected_payment_processor)
 
-    confirm = get_choice("  Confirm purchase? (y/n): ", ["y", "n"])
-    if confirm == "n":
-        print("  Purchase cancelled.")
+    # 12. Final Confirmation
+    valid_confirmation_inputs = ["y", "n"]
+    user_confirmation = get_choice("  Confirm purchase? (y/n): ", valid_confirmation_inputs)
+    
+    if user_confirmation == "n":
+        print("  Purchase cancelled by user.")
         pause()
         return
 
-    result = ki.purchase_item(name, user_id, quantity=qty)
-    print(f"\n  {'Purchase successful!' if result else 'Purchase failed.'}")
+    # 13. Execute Transaction
+    transaction_successful = ki.purchase_item(target_item_name, user_id, quantity=requested_quantity)
+    
+    if transaction_successful:
+        print("\n  Purchase successful!")
+    else:
+        print("\n  Purchase failed.")
+        
     pause()
 
 
