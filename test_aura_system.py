@@ -134,3 +134,58 @@ class TestPersistence(unittest.TestCase):
         inv_list = saved["PERSIST-01"].get("inventory", [])
         names = [i["name"] for i in inv_list if i.get("type") != "bundle"]
         self.assertIn("Water Bottle", names)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   2. CENTRAL REGISTRY + FACTORY (Section 3.3, 3.4)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestCentralRegistry(unittest.TestCase):
+    """CentralRegistry must behave as a Singleton and track system state."""
+
+    def setUp(self):
+        CentralRegistry._instance = None
+        self.registry = CentralRegistry()
+        self.registry.initialize()
+
+    def test_singleton_instance(self):
+        """Multiple instances should point to same object."""
+        r2 = CentralRegistry()
+        self.assertIs(self.registry, r2)
+
+    def test_register_kiosk(self):
+        """Registering kiosks should store them globally."""
+        ki = make_food_kiosk("REG-01")
+        self.registry.register_kiosk(ki._kiosk)
+
+        kiosks = self.registry.get_all_kiosks()
+        self.assertIn("REG-01", kiosks)
+
+    def test_transaction_logging(self):
+        """Transactions should be recorded globally."""
+        ki = make_food_kiosk("REG-02")
+        ki.purchase_item("Water Bottle", "user1")
+
+        txns = self.registry.get_all_transactions()
+        self.assertGreater(len(txns), 0)
+
+
+class TestKioskFactory(unittest.TestCase):
+    """Factory must correctly instantiate kiosk types with proper setup."""
+
+    def test_food_kiosk_creation(self):
+        ki = KioskFactory.create_food_kiosk("F-01", "Metro")
+        self.assertIsInstance(ki._kiosk, FoodKiosk)
+
+    def test_pharmacy_kiosk_creation(self):
+        ki = KioskFactory.create_pharmacy_kiosk("P-01", "Hospital")
+        self.assertIsInstance(ki._kiosk, PharmacyKiosk)
+
+    def test_emergency_kiosk_creation(self):
+        ki = KioskFactory.create_emergency_kiosk("E-01", "Disaster Zone")
+        self.assertIsInstance(ki._kiosk, EmergencyKiosk)
+
+    def test_factory_initializes_inventory(self):
+        """Factory should preload inventory for kiosks."""
+        ki = KioskFactory.create_food_kiosk("F-02", "Campus")
+        items = ki._kiosk.inventory.get_all_items()
+        self.assertGreater(len(items), 0)
