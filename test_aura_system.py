@@ -189,3 +189,55 @@ class TestKioskFactory(unittest.TestCase):
         ki = KioskFactory.create_food_kiosk("F-02", "Campus")
         items = ki._kiosk.inventory.get_all_items()
         self.assertGreater(len(items), 0)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   3. KIOSK INTERFACE (FACADE PATTERN)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestKioskInterface(unittest.TestCase):
+    """Tests for Facade layer handling all kiosk operations."""
+
+    def setUp(self):
+        FileHandler.clear()
+        self.ki = make_food_kiosk("FACADE-01")
+
+    def test_purchase_success(self):
+        """Valid purchase should succeed and be recorded."""
+        result = self.ki.purchase_item("Water Bottle", "user1")
+        self.assertTrue(result)
+
+        txns = FileHandler.load_transactions()
+        self.assertEqual(len(txns), 1)
+
+    def test_purchase_invalid_item(self):
+        """Purchasing non-existing item should fail."""
+        result = self.ki.purchase_item("Invalid Item", "user1")
+        self.assertFalse(result)
+
+    def test_purchase_insufficient_stock(self):
+        """Requesting more than available stock should fail."""
+        result = self.ki.purchase_item("Water Bottle", "user1", quantity=1000)
+        self.assertFalse(result)
+
+    def test_refund_transaction(self):
+        """Refund should succeed for valid transaction."""
+        self.ki.purchase_item("Water Bottle", "user1")
+
+        txns = FileHandler.load_transactions()
+        txn_id = txns[0]["txn_id"]
+
+        result = self.ki.refund_transaction(txn_id, "user1")
+        self.assertTrue(result)
+
+    def test_restock_inventory(self):
+        """Admin should be able to restock items."""
+        result = self.ki.restock_inventory("Water Bottle", 10)
+        self.assertTrue(result)
+
+    def test_get_user_transactions(self):
+        """Should return only transactions for given user."""
+        self.ki.purchase_item("Water Bottle", "userA")
+        self.ki.purchase_item("Water Bottle", "userB")
+
+        user_a_txns = self.ki.get_user_transactions("userA")
+        self.assertEqual(len(user_a_txns), 1)
