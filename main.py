@@ -197,61 +197,90 @@ def admin_main_menu(active_kiosks: dict, admin_id: str):
 
 
 def admin_create_kiosk(active_kiosks: dict, admin_id: str):
-    """Admin: Create a brand new kiosk (no payment set at creation — user picks at purchase)."""
+    """
+    Administrative interactive sequence for creating a net-new kiosk entity.
+    Guides the administrator through type selection, location mapping, inventory 
+    initialization, and hardware binding.
+    """
+    # 1. Initialize Creation Sequence
     divider("CREATE NEW VENDING MACHINE")
 
-    print("\n  Kiosk types:")
-    print("    1. Food Kiosk       (Metro/Campus)")
-    print("    2. Pharmacy Kiosk   (Hospital)")
-    print("    3. Emergency Kiosk  (Disaster Zone)")
+    # 2. Display Kiosk Type Blueprint Options
+    print("\n  Available Kiosk Blueprints:")
+    print("    1. Food Kiosk       (Target: Metro/Campus environments)")
+    print("    2. Pharmacy Kiosk   (Target: Hospital/Clinical environments)")
+    print("    3. Emergency Kiosk  (Target: Disaster Zone environments)")
     line()
-    ktype = get_choice("  Choose type (1/2/3): ", ["1", "2", "3"])
-    type_map = {"1": "FoodKiosk", "2": "PharmacyKiosk", "3": "EmergencyKiosk"}
-    ktype_name = type_map[ktype]
+    
+    # 3. Handle Blueprint Selection
+    valid_blueprint_choices = ["1", "2", "3"]
+    selected_blueprint_id = get_choice("  Choose blueprint (1/2/3): ", valid_blueprint_choices)
+    
+    blueprint_mapping = {
+        "1": "FoodKiosk", 
+        "2": "PharmacyKiosk", 
+        "3": "EmergencyKiosk"
+    }
+    resolved_kiosk_blueprint_name = blueprint_mapping[selected_blueprint_id]
 
-    kiosk_id = ask(f"  Kiosk ID (e.g. KIOSK-01): ",
-                   f"KIOSK-{len(active_kiosks)+1:02d}").upper()
-    location = ask("  Location (e.g. Central Metro): ", "City Zone")
-    password = ask("  Kiosk Admin Password: ", "1234")
+    # 4. Generate and Collect Identity Meta-data
+    default_generated_id = f"KIOSK-{len(active_kiosks)+1:02d}"
+    prompt_id = f"  Kiosk ID (e.g. KIOSK-01): "
+    final_kiosk_id = ask(prompt_id, default_generated_id).upper()
+    
+    final_kiosk_location = ask("  Location (e.g. Central Metro): ", "City Zone")
+    final_kiosk_password = ask("  Kiosk Admin Password: ", "1234")
 
-    # Items
-    items = _collect_items()
+    # 5. Interactively Collect Inventory Loadout
+    collected_individual_items = _collect_items()
+    collected_bundled_combos = _collect_combos(collected_individual_items)
 
-    # Combos
-    combos = _collect_combos(items)
+    # 6. Interactively Collect Hardware Capabilities
+    constructed_hardware_node, mapped_sensors, active_modules = _collect_hardware(final_kiosk_id)
 
-    # Hardware
-    hw, sensors, modules = _collect_hardware(kiosk_id)
-
-    # Assemble
-    divider("CREATING KIOSK...")
-    if ktype_name == "PharmacyKiosk":
-        kiosk = PharmacyKiosk(kiosk_id, location, password)
-    elif ktype_name == "EmergencyKiosk":
-        kiosk = EmergencyKiosk(kiosk_id, location, password)
+    # 7. Assemble the Final Kiosk Object Graph
+    divider("ASSEMBLING KIOSK DEPENDENCIES...")
+    
+    new_kiosk_instance = None
+    if resolved_kiosk_blueprint_name == "PharmacyKiosk":
+        new_kiosk_instance = PharmacyKiosk(final_kiosk_id, final_kiosk_location, final_kiosk_password)
+    elif resolved_kiosk_blueprint_name == "EmergencyKiosk":
+        new_kiosk_instance = EmergencyKiosk(final_kiosk_id, final_kiosk_location, final_kiosk_password)
     else:
-        kiosk = FoodKiosk(kiosk_id, location, password)
+        new_kiosk_instance = FoodKiosk(final_kiosk_id, final_kiosk_location, final_kiosk_password)
 
-    kiosk.set_hardware(hw)
-    kiosk.set_sensors(sensors)
-    # No payment set here — user selects at purchase time
-    kiosk.set_payment_processor(None)
+    # 8. Bind Core Systems
+    new_kiosk_instance.set_hardware(constructed_hardware_node)
+    new_kiosk_instance.set_sensors(mapped_sensors)
+    
+    # Intentionally leave payment unbound so users can select dynamically at purchase
+    new_kiosk_instance.set_payment_processor(None)
 
-    inv = Inventory()
-    for item in items:
-        inv.add_item(item)
-    for combo in combos:
-        inv.add_item(combo)
-    kiosk.set_inventory(inv)
+    # 9. Bind and Hydrate Inventory System
+    master_inventory = Inventory()
+    
+    for single_item in collected_individual_items:
+        master_inventory.add_item(single_item)
+        
+    for bundle_item in collected_bundled_combos:
+        master_inventory.add_item(bundle_item)
+        
+    new_kiosk_instance.set_inventory(master_inventory)
 
-    ki = KioskInterface(kiosk)
-    active_kiosks[kiosk_id] = ki
-    ki._save_kiosk_state()
+    # 10. Instantiate Facade Interface
+    kiosk_interface_facade = KioskInterface(new_kiosk_instance)
+    
+    # 11. Register to Global State and Persist
+    active_kiosks[final_kiosk_id] = kiosk_interface_facade
+    kiosk_interface_facade._save_kiosk_state()
 
-    print(f"\n  Kiosk '{kiosk_id}' created and saved!")
-    print("  NOTE: Payment method is selected by users at purchase time.")
-    ki.show_kiosk_info()
-    ki.show_inventory()
+    # 12. Output Success Readout
+    print(f"\n  Kiosk '{final_kiosk_id}' successfully assembled and registered!")
+    print("  NOTE: Payment strategy is deferred to dynamic selection by end-users.")
+    
+    kiosk_interface_facade.show_kiosk_info()
+    kiosk_interface_facade.show_inventory()
+    
     pause()
 
 
