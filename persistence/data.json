@@ -8,7 +8,7 @@
       "mode": "ACTIVE",
       "payment": {
         "type": "upi",
-        "vpa": "mayank@gpay"
+        "vpa": "user@paytm"
       },
       "hardware_modules": [
         "dispenser",
@@ -23,7 +23,7 @@
           "product_id": "F001",
           "name": "Water Bottle",
           "price": 20.0,
-          "stock": 52,
+          "stock": 54,
           "requires_refrigeration": false,
           "type": "product"
         },
@@ -247,35 +247,12 @@
       "timestamp": "2026-04-29 16:38:55",
       "status": "SUCCESS",
       "type": "PURCHASE"
-    },
-    {
-      "txn_id": "456A9CA1",
-      "kiosk_id": "KIOSK-01",
-      "user_id": "01",
-      "item": "Water Bottle",
-      "amount": 20.0,
-      "provider": "UPI (mayank@gpay)",
-      "timestamp": "2026-05-02 16:08:47",
-      "status": "SUCCESS",
-      "type": "PURCHASE"
-    },
-    {
-      "txn_id": "2B158BA6",
-      "kiosk_id": "KIOSK-01",
-      "user_id": "01",
-      "item": "Water Bottle",
-      "amount": 0.0,
-      "provider": "UPI (mayank@gpay)",
-      "timestamp": "2026-05-02 16:08:47",
-      "status": "SUCCESS",
-      "type": "PURCHASE"
     }
   ],
   "config": {},
   "events": [
     "[2026-04-29 16:37:43] [KIOSK-01] RESTOCKED: 'iceslas' +1 units",
     "[2026-04-29 16:38:55] [KIOSK-01] LOW STOCK: 'iceslas' has only 0 units left",
-    "[2026-04-29 16:38:55] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 purchase limits enforced",
-    "[2026-05-02 16:08:47] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 restrictions applied"
+    "[2026-04-29 16:38:55] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 purchase limits enforced"
   ]
 }
