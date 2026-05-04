@@ -241,3 +241,113 @@ class TestKioskInterface(unittest.TestCase):
 
         user_a_txns = self.ki.get_user_transactions("userA")
         self.assertEqual(len(user_a_txns), 1)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   4. COMMAND PATTERN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestCommandPattern(unittest.TestCase):
+    """Tests for Command pattern execution and history tracking."""
+
+    def setUp(self):
+        FileHandler.clear()
+        self.registry = fresh_registry()
+        self.ki = make_food_kiosk("CMD-01")
+        self.kiosk = self.ki._kiosk
+
+    def test_purchase_command_execution(self):
+        """PurchaseCommand should execute and reduce stock."""
+        item = self.kiosk._inventory.find_item("Water Bottle")
+        initial_stock = item.get_available_stock()
+
+        cmd = PurchaseCommand(
+            kiosk_id=self.kiosk.kiosk_id,
+            user_id="user1",
+            item=item,
+            payment_processor=self.kiosk._payment_processor,
+            pricing_context=self.kiosk._pricing,
+            kiosk_ref=self.kiosk,
+        )
+
+        result = cmd.execute()
+        self.assertTrue(result)
+
+        self.assertEqual(item.get_available_stock(), initial_stock - 1)
+
+    def test_refund_command_execution(self):
+        """RefundCommand should restore stock."""
+        self.ki.purchase_item("Water Bottle", "user1")
+
+        txns = FileHandler.load_transactions()
+        txn_id = txns[0]["txn_id"]
+
+        item = self.kiosk._inventory.find_item("Water Bottle")
+        stock_before = item.get_available_stock()
+
+        cmd = RefundCommand(
+            kiosk_id=self.kiosk.kiosk_id,
+            user_id="user1",
+            txn_id=txn_id,
+            item=item,
+            payment_processor=self.kiosk._payment_processor,
+        )
+
+        result = cmd.execute()
+        self.assertTrue(result)
+
+        self.assertGreater(item.get_available_stock(), stock_before)
+
+    def test_restock_command_execution(self):
+        """RestockCommand should increase stock."""
+        item = self.kiosk._inventory.find_item("Water Bottle")
+        initial_stock = item.get_available_stock()
+
+        cmd = RestockCommand(
+            kiosk_id=self.kiosk.kiosk_id,
+            user_id="admin",
+            item=item,
+            quantity=5,
+        )
+
+        result = cmd.execute()
+        self.assertTrue(result)
+
+        self.assertEqual(item.get_available_stock(), initial_stock + 5)
+
+    def test_command_history_tracking(self):
+        """CommandHistory should record executed commands."""
+        history = CommandHistory()
+
+        item = self.kiosk._inventory.find_item("Water Bottle")
+
+        cmd = PurchaseCommand(
+            kiosk_id=self.kiosk.kiosk_id,
+            user_id="user1",
+            item=item,
+            payment_processor=self.kiosk._payment_processor,
+            pricing_context=self.kiosk._pricing,
+            kiosk_ref=self.kiosk,
+        )
+
+        cmd.execute()
+        history.record(cmd)
+
+        self.assertEqual(len(history._history), 1)
+
+    def test_multiple_commands_sequence(self):
+        """Multiple commands should execute correctly in sequence."""
+        item = self.kiosk._inventory.find_item("Water Bottle")
+        initial_stock = item.get_available_stock()
+
+        for _ in range(3):
+            cmd = PurchaseCommand(
+                kiosk_id=self.kiosk.kiosk_id,
+                user_id="user1",
+                item=item,
+                payment_processor=self.kiosk._payment_processor,
+                pricing_context=self.kiosk._pricing,
+                kiosk_ref=self.kiosk,
+            )
+            cmd.execute()
+
+        self.assertEqual(item.get_available_stock(), initial_stock - 3)
