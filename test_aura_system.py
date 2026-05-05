@@ -351,3 +351,87 @@ class TestCommandPattern(unittest.TestCase):
             cmd.execute()
 
         self.assertEqual(item.get_available_stock(), initial_stock - 3)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   5. DERIVED ATTRIBUTES + SYSTEM CONSTRAINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestDerivedAttributes(unittest.TestCase):
+    """Tests for computed/derived values like stock and availability."""
+
+    def test_product_available_stock(self):
+        """Available stock = total stock - reserved."""
+        p = fresh_product(stock=10)
+
+        p.reserve()
+        p.reserve()
+
+        self.assertEqual(p.get_available_stock(), 8)
+
+    def test_product_unavailable_due_to_hardware(self):
+        """Product becomes unavailable if hardware dependency fails."""
+        p = fresh_product(chilled=True)
+        p.mark_hardware_unavailable(True)
+
+        self.assertFalse(p.is_available())
+        self.assertEqual(p.get_available_stock(), 0)
+
+    def test_bundle_stock_minimum(self):
+        """Bundle stock should be minimum of its items."""
+        p1 = fresh_product(stock=10)
+        p2 = fresh_product(stock=5)
+
+        bundle = ProductBundle("B1", "Test Bundle")
+        bundle.add_item(p1)
+        bundle.add_item(p2)
+
+        self.assertEqual(bundle.get_available_stock(), 5)
+
+    def test_bundle_price_with_discount(self):
+        """Bundle price should apply discount correctly."""
+        p1 = fresh_product(price=100)
+        p2 = fresh_product(price=100)
+
+        bundle = ProductBundle("B2", "Discount Bundle", discount_pct=10)
+        bundle.add_item(p1)
+        bundle.add_item(p2)
+
+        self.assertEqual(bundle.get_price(), 180.0)
+
+
+class TestSystemConstraints(unittest.TestCase):
+    """Tests for system rules like limits and emergency mode."""
+
+    def setUp(self):
+        self.ki = make_food_kiosk("CONST-01")
+
+    def test_daily_purchase_limit(self):
+        """User should not exceed daily purchase limit."""
+        for _ in range(10):
+            self.ki.purchase_item("Water Bottle", "user1")
+
+        result = self.ki.purchase_item("Water Bottle", "user1")
+        self.assertFalse(result)
+
+    def test_emergency_mode_limit(self):
+        """Emergency mode should enforce stricter limits."""
+        kiosk = self.ki._kiosk
+        kiosk._emergency_mode = True
+
+        for _ in range(EMERGENCY_PURCHASE_LIMIT):
+            self.ki.purchase_item("Water Bottle", "user1")
+
+        result = self.ki.purchase_item("Water Bottle", "user1")
+        self.assertFalse(result)
+
+    def test_emergency_activation_on_low_stock(self):
+        """Emergency mode activates when stock is too low."""
+        kiosk = self.ki._kiosk
+        item = kiosk._inventory.find_item("Water Bottle")
+
+        # Reduce stock below threshold
+        while item.get_available_stock() > EMERGENCY_STOCK_THRESHOLD:
+            item.confirm_sale()
+
+        kiosk.check_and_activate_emergency()
+        self.assertTrue(kiosk._emergency_mode)
