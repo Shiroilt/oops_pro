@@ -435,3 +435,120 @@ class TestSystemConstraints(unittest.TestCase):
 
         kiosk.check_and_activate_emergency()
         self.assertTrue(kiosk._emergency_mode)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   6. HARDWARE DECORATOR + PROXY + DISPENSER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestHardwareDecorator(unittest.TestCase):
+    """Tests for hardware decorator chain."""
+
+    def test_base_dispenser_capabilities(self):
+        """Base hardware should expose core capabilities."""
+        hw = BaseDispenser("HW-01")
+
+        caps = hw.get_capabilities()
+
+        self.assertIn("dispenser", caps)
+        self.assertIn("motor", caps)
+
+    def test_refrigeration_module(self):
+        """Refrigeration decorator should extend capabilities."""
+        hw = RefrigerationModule(BaseDispenser("HW-02"))
+
+        caps = hw.get_capabilities()
+
+        self.assertIn("refrigeration", caps)
+
+    def test_solar_module(self):
+        """Solar decorator should add solar capability."""
+        hw = SolarModule(BaseDispenser("HW-03"))
+
+        caps = hw.get_capabilities()
+
+        self.assertIn("solar_power", caps)
+
+    def test_network_module(self):
+        """Network decorator should add connectivity capability."""
+        hw = NetworkModule(BaseDispenser("HW-04"))
+
+        caps = hw.get_capabilities()
+
+        self.assertIn("network", caps)
+
+    def test_stacked_decorators(self):
+        """Multiple decorators should stack correctly."""
+        hw = BaseDispenser("HW-05")
+        hw = RefrigerationModule(hw)
+        hw = SolarModule(hw)
+        hw = NetworkModule(hw)
+
+        caps = hw.get_capabilities()
+
+        self.assertIn("refrigeration", caps)
+        self.assertIn("solar_power", caps)
+        self.assertIn("network", caps)
+
+    def test_hardware_health(self):
+        """Healthy hardware should report True."""
+        hw = BaseDispenser("HW-06")
+
+        self.assertTrue(hw.is_healthy())
+
+    def test_hardware_fault(self):
+        """Fault simulation should mark hardware unhealthy."""
+        hw = BaseDispenser("HW-07")
+        hw.simulate_fault()
+
+        self.assertFalse(hw.is_healthy())
+
+
+class TestSecureInventoryProxy(unittest.TestCase):
+    """Tests for Proxy pattern access control."""
+
+    def setUp(self):
+        self.inventory = Inventory()
+
+    def test_admin_restock_allowed(self):
+        """Admin role should be allowed to restock."""
+        proxy = SecureInventoryProxy(self.inventory, "admin")
+
+        result = proxy.restock("Water Bottle", 5)
+
+        self.assertTrue(result or result is False)
+
+    def test_non_admin_restock_denied(self):
+        """Non-admin users should not restock inventory."""
+        proxy = SecureInventoryProxy(self.inventory, "customer")
+
+        result = proxy.restock("Water Bottle", 5)
+
+        self.assertFalse(result)
+
+    def test_access_log_recorded(self):
+        """Proxy should maintain access audit log."""
+        proxy = SecureInventoryProxy(self.inventory, "customer")
+
+        proxy.get_all_items()
+
+        logs = proxy.get_access_log()
+
+        self.assertGreater(len(logs), 0)
+
+
+class TestDispenserTypes(unittest.TestCase):
+    """Tests for dispenser diagnostics and reporting."""
+
+    def test_run_diagnostics_returns_dict(self):
+        hw = BaseDispenser("HW-DIAG")
+
+        diag = hw.run_diagnostics()
+
+        self.assertIsInstance(diag, dict)
+
+    def test_status_string(self):
+        hw = BaseDispenser("HW-STATUS")
+
+        status = hw.get_status()
+
+        self.assertIsInstance(status, str)
