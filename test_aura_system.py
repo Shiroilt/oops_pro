@@ -552,3 +552,108 @@ class TestDispenserTypes(unittest.TestCase):
         status = hw.get_status()
 
         self.assertIsInstance(status, str)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   7. PAYMENT ADAPTER + COMPOSITE + ABSTRACT FACTORY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestPaymentAdapter(unittest.TestCase):
+    """Tests for payment adapter integrations."""
+
+    def test_upi_adapter(self):
+        """UPI adapter should process payments successfully."""
+        upi = UPIAdapter("test@upi")
+
+        result = upi.process_payment(50.0)
+
+        self.assertTrue(result)
+
+    def test_card_adapter(self):
+        """Card adapter should process payments successfully."""
+        card = CardAdapter("1234567890123456")
+
+        result = card.process_payment(100.0)
+
+        self.assertTrue(result)
+
+    def test_wallet_adapter(self):
+        """Digital wallet adapter should process payments."""
+        wallet = DigitalWalletAdapter("wallet-01")
+
+        result = wallet.process_payment(75.0)
+
+        self.assertTrue(result)
+
+    def test_payment_deserialization(self):
+        """Factory helper should recreate payment adapter."""
+        data = {
+            "type": "upi",
+            "upi_id": "demo@upi"
+        }
+
+        payment = payment_from_dict(data)
+
+        self.assertIsInstance(payment, UPIAdapter)
+
+
+class TestCompositeInventory(unittest.TestCase):
+    """Tests for Product + ProductBundle composite behavior."""
+
+    def test_bundle_contains_products(self):
+        """Bundle should store added products."""
+        p1 = fresh_product(name="Item A")
+        p2 = fresh_product(name="Item B")
+
+        bundle = ProductBundle("B100", "Combo")
+        bundle.add_item(p1)
+        bundle.add_item(p2)
+
+        self.assertEqual(len(bundle._children), 2)
+
+    def test_bundle_availability(self):
+        """Bundle availability depends on children."""
+        p1 = fresh_product(stock=5)
+        p2 = fresh_product(stock=0)
+
+        bundle = ProductBundle("B101", "Mixed Bundle")
+        bundle.add_item(p1)
+        bundle.add_item(p2)
+
+        self.assertFalse(bundle.is_available())
+
+    def test_nested_bundle(self):
+        """Bundles should support recursive nesting."""
+        p1 = fresh_product(name="Water")
+        inner = ProductBundle("INNER", "Inner Bundle")
+        inner.add_item(p1)
+
+        outer = ProductBundle("OUTER", "Outer Bundle")
+        outer.add_item(inner)
+
+        self.assertEqual(outer.get_available_stock(),
+                         inner.get_available_stock())
+
+
+class TestAbstractFactory(unittest.TestCase):
+    """Tests for product factory abstraction."""
+
+    def test_food_product_factory(self):
+        product = ProductFactory.create_food_product(
+            "F001", "Sandwich", 50.0, 10
+        )
+
+        self.assertIsInstance(product, FoodProduct)
+
+    def test_pharmacy_product_factory(self):
+        product = ProductFactory.create_pharmacy_product(
+            "P001", "Paracetamol", 25.0, 20
+        )
+
+        self.assertIsInstance(product, PharmacyProduct)
+
+    def test_emergency_product_factory(self):
+        product = ProductFactory.create_emergency_product(
+            "E001", "Relief Kit", 0.0, 100
+        )
+
+        self.assertIsInstance(product, EmergencyProduct)
