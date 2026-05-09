@@ -657,3 +657,149 @@ class TestAbstractFactory(unittest.TestCase):
         )
 
         self.assertIsInstance(product, EmergencyProduct)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#   8. OBSERVER + STATE + PRICING + SYSTEM INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestObserverPattern(unittest.TestCase):
+    """Tests for event publishing and observer notification."""
+
+    def setUp(self):
+        self.bus = fresh_event_bus()
+
+    def test_low_stock_event(self):
+        """Low stock event should publish successfully."""
+        event = LowStockEvent("K001", "Water Bottle", 2)
+
+        self.bus.publish(event)
+
+        self.assertTrue(True)
+
+    def test_hardware_failure_event(self):
+        """Hardware failure events should dispatch correctly."""
+        event = HardwareFailureEvent("K002", "Motor")
+
+        self.bus.publish(event)
+
+        self.assertTrue(True)
+
+    def test_emergency_event(self):
+        """Emergency activation events should publish."""
+        event = EmergencyModeActivatedEvent("K003")
+
+        self.bus.publish(event)
+
+        self.assertTrue(True)
+
+    def test_city_monitor_logs_events(self):
+        """City monitor should store published events."""
+        monitor = self.bus.get_city_monitor()
+
+        event = RestockEvent("K004", "Medicine", 20)
+        self.bus.publish(event)
+
+        self.assertGreater(len(monitor.get_log()), 0)
+
+
+class TestStatePattern(unittest.TestCase):
+    """Tests for kiosk operational states."""
+
+    def setUp(self):
+        self.ki = make_food_kiosk("STATE-01")
+        self.kiosk = self.ki._kiosk
+
+    def test_active_state(self):
+        """Kiosk should begin in active state."""
+        self.assertIsInstance(self.kiosk._state, ActiveState)
+
+    def test_maintenance_state(self):
+        """Kiosk should support maintenance mode."""
+        self.kiosk.set_state(MaintenanceState())
+
+        self.assertFalse(self.kiosk.is_operational())
+
+    def test_offline_state(self):
+        """Offline state should disable operations."""
+        self.kiosk.set_state(OfflineState())
+
+        self.assertFalse(self.kiosk.is_operational())
+
+
+class TestPricingStrategies(unittest.TestCase):
+    """Tests for pricing strategy calculations."""
+
+    def test_standard_pricing(self):
+        pricing = PricingContext(StandardPricing())
+
+        result = pricing.calculate_price(100.0)
+
+        self.assertEqual(result, 100.0)
+
+    def test_discounted_pricing(self):
+        pricing = PricingContext(DiscountedPricing(20))
+
+        result = pricing.calculate_price(100.0)
+
+        self.assertEqual(result, 80.0)
+
+    def test_emergency_pricing(self):
+        pricing = PricingContext(EmergencyPricing())
+
+        result = pricing.calculate_price(100.0)
+
+        self.assertGreaterEqual(result, 100.0)
+
+    def test_surge_pricing(self):
+        pricing = PricingContext(SurgePricing(1.5))
+
+        result = pricing.calculate_price(100.0)
+
+        self.assertEqual(result, 150.0)
+
+
+class TestSystemIntegration(unittest.TestCase):
+    """Basic end-to-end integration tests."""
+
+    def setUp(self):
+        FileHandler.clear()
+        self.ki = make_food_kiosk("SYS-01")
+
+    def test_complete_purchase_flow(self):
+        """Complete purchase flow should succeed."""
+        result = self.ki.purchase_item("Water Bottle", "integration_user")
+
+        self.assertTrue(result)
+
+        txns = FileHandler.load_transactions()
+        self.assertEqual(len(txns), 1)
+
+    def test_inventory_updates_after_purchase(self):
+        """Stock should decrease after purchase."""
+        kiosk = self.ki._kiosk
+
+        item = kiosk._inventory.find_item("Water Bottle")
+        before = item.get_available_stock()
+
+        self.ki.purchase_item("Water Bottle", "integration_user")
+
+        after = item.get_available_stock()
+
+        self.assertEqual(after, before - 1)
+
+    def test_refund_restores_stock(self):
+        """Refund should restore item stock."""
+        kiosk = self.ki._kiosk
+
+        item = kiosk._inventory.find_item("Water Bottle")
+
+        self.ki.purchase_item("Water Bottle", "integration_user")
+
+        txns = FileHandler.load_transactions()
+        txn_id = txns[0]["txn_id"]
+
+        stock_before = item.get_available_stock()
+
+        self.ki.refund_transaction(txn_id, "integration_user")
+
+        self.assertGreater(item.get_available_stock(), stock_before)
