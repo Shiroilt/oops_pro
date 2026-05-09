@@ -46,7 +46,7 @@ The project is primarily an **academic design patterns showcase**, with every ma
 
 - Three kiosk types: **Food**, **Pharmacy**, **Emergency**
 - Modular hardware stacks: Refrigeration, Solar Power, Network
-- Three payment methods selectable at purchase time: UPI, Card, Wallet
+- Four payment methods selectable at purchase time: UPI, Card, Wallet, Cash/Coin
 - Dynamic pricing: Standard, Discounted, Emergency (Free), Surge
 - Full transaction lifecycle: purchase, refund, restock, audit log
 - Automatic emergency mode when stock falls critically low
@@ -204,13 +204,14 @@ Client code never references concrete product classes.
 
 #### `payment/adapter.py` — Adapter Pattern
 
-Three incompatible third-party APIs are adapted into the `PaymentProcessor` interface:
+Four incompatible third-party APIs are adapted into the `PaymentProcessor` interface:
 
 | Adaptee (Raw API) | Adapter | Key translation |
 |-------------------|---------|-----------------|
 | `UPISystemAPI` | `UPIAdapter` | `initiate_upi_payment()` → `process_payment()` |
 | `CardGatewayAPI` | `CardAdapter` | `charge_card()` (paise) → `process_payment()` (Rs.) |
 | `DigitalWalletAPI` | `DigitalWalletAdapter` | `debit_wallet()` → `process_payment()` |
+| `CashValidatorAPI` | `CashAdapter` | `insert_cash()` / `dispense_change()` → `process_payment()` / `refund_payment()` |
 
 The kiosk never knows which underlying API it is using — it calls `process_payment()` and the adapter handles translation.
 
@@ -395,7 +396,7 @@ Payment method is **not** selected at kiosk creation. It is selected by the user
 | **Facade** | Structural | `core/kiosk_interface.py` | Single API hiding all subsystems |
 | **Proxy** | Structural | `product/inventory_proxy.py` | Role-based inventory access control |
 | **Composite** | Structural | `product/product.py`, `product/bundle.py` | Products and bundles as uniform tree |
-| **Adapter** | Structural | `payment/adapter.py` | UPI/Card/Wallet APIs → PaymentProcessor |
+| **Adapter** | Structural | `payment/adapter.py` | UPI/Card/Wallet/Cash APIs → PaymentProcessor |
 | **Command** | Behavioral | `commands/` | Atomic operations with undo/rollback |
 | **Strategy** | Behavioral | `pricing/pricing_strategy.py`, `payment/payment_selector.py` | Swappable pricing and payment methods |
 | **State** | Behavioral | `core/kiosk.py` | ACTIVE / MAINTENANCE / OFFLINE modes |
