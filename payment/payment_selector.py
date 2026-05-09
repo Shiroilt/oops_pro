@@ -9,7 +9,7 @@ This is the NEW feature — previously payment was chosen at kiosk creation.
 Now users pick UPI / Card / Wallet each time they buy something.
 """
 
-from payment.adapter import UPIAdapter, CardAdapter, DigitalWalletAdapter
+from payment.adapter import UPIAdapter, CardAdapter, DigitalWalletAdapter, CashAdapter
 from payment.payment_interface import PaymentProcessor
 
 
@@ -31,12 +31,13 @@ class PaymentSelector:
         print("    1. UPI     — enter your VPA (e.g. name@bank)")
         print("    2. Card    — enter your card token")
         print("    3. Wallet  — enter your wallet ID")
+        print("    4. Cash    — insert cash into the tray")
         print("    0. Cancel")
         print("  ─────────────────────────────────────────────────")
 
         # Loop until a valid choice is made
         while True:
-            user_input = input("  Your choice (0-3): ").strip()
+            user_input = input("  Your choice (0-4): ").strip()
 
             if user_input == "0":
                 # User cancelled the payment flow
@@ -66,6 +67,14 @@ class PaymentSelector:
                 print(f"  Payment method: Wallet → {final_wallet}")
                 return wallet_adapter
 
+            elif user_input == "4":
+                # Handle Cash adapter setup
+                entered_tray = input("  Tray ID (e.g. TRAY-01): ").strip()
+                final_tray = entered_tray if entered_tray else "TRAY-01"
+                cash_adapter = CashAdapter(tray_id=final_tray)
+                print(f"  Payment method: Cash/Coin → {final_tray}")
+                return cash_adapter
+
             else:
                 # Catch-all for invalid numeric inputs
-                print("  Invalid choice. Enter 0, 1, 2, or 3.")
+                print("  Invalid choice. Enter 0, 1, 2, 3, or 4.")

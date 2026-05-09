@@ -25,12 +25,13 @@ from hardware.dispenser      import (BaseDispenser, RefrigerationModule,
                                      SolarModule, NetworkModule, HardwareDecorator)
 from hardware.hardware_factory import HardwareFactory
 from hardware.sensor         import SensorArray
-from payment.adapter         import UPIAdapter, CardAdapter, DigitalWalletAdapter, payment_from_dict
+from payment.adapter         import UPIAdapter, CardAdapter, DigitalWalletAdapter, CashAdapter, payment_from_dict
 from payment.payment_interface import PaymentProcessor
 from product.product         import Product
 from product.bundle          import ProductBundle
 from product.inventory       import Inventory
 from product.product_factory import ProductFactory, FoodProduct, PharmacyProduct, EmergencyProduct
+from product.inventory_proxy import SecureInventoryProxy
 from pricing.pricing_strategy import (PricingContext, StandardPricing,
                                        DiscountedPricing, EmergencyPricing, SurgePricing)
 from commands.command        import Command, CommandHistory
@@ -155,9 +156,9 @@ class TestCentralRegistry(unittest.TestCase):
     def test_register_kiosk(self):
         """Registering kiosks should store them globally."""
         ki = make_food_kiosk("REG-01")
-        self.registry.register_kiosk(ki._kiosk)
+        self.registry.update_kiosk_status(ki._kiosk.kiosk_id, ki._kiosk.to_dict())
 
-        kiosks = self.registry.get_all_kiosks()
+        kiosks = self.registry.get_all_statuses()
         self.assertIn("REG-01", kiosks)
 
     def test_transaction_logging(self):
@@ -187,7 +188,7 @@ class TestKioskFactory(unittest.TestCase):
     def test_factory_initializes_inventory(self):
         """Factory should preload inventory for kiosks."""
         ki = KioskFactory.create_food_kiosk("F-02", "Campus")
-        items = ki._kiosk.inventory.get_all_items()
+        items = ki._kiosk._inventory.get_all_items()
         self.assertGreater(len(items), 0)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -317,6 +318,7 @@ class TestCommandPattern(unittest.TestCase):
     def test_command_history_tracking(self):
         """CommandHistory should record executed commands."""
         history = CommandHistory()
+        history._history.clear()
 
         item = self.kiosk._inventory.find_item("Water Bottle")
 
@@ -564,7 +566,7 @@ class TestPaymentAdapter(unittest.TestCase):
         """UPI adapter should process payments successfully."""
         upi = UPIAdapter("test@upi")
 
-        result = upi.process_payment(50.0)
+        result = upi.process_payment(50.0, "user1")
 
         self.assertTrue(result)
 
@@ -572,7 +574,7 @@ class TestPaymentAdapter(unittest.TestCase):
         """Card adapter should process payments successfully."""
         card = CardAdapter("1234567890123456")
 
-        result = card.process_payment(100.0)
+        result = card.process_payment(100.0, "user1")
 
         self.assertTrue(result)
 
@@ -580,7 +582,15 @@ class TestPaymentAdapter(unittest.TestCase):
         """Digital wallet adapter should process payments."""
         wallet = DigitalWalletAdapter("wallet-01")
 
-        result = wallet.process_payment(75.0)
+        result = wallet.process_payment(75.0, "user1")
+
+        self.assertTrue(result)
+
+    def test_cash_adapter(self):
+        """Cash adapter should process payments successfully."""
+        cash = CashAdapter("TRAY-01")
+
+        result = cash.process_payment(20.0, "user1")
 
         self.assertTrue(result)
 
@@ -588,7 +598,7 @@ class TestPaymentAdapter(unittest.TestCase):
         """Factory helper should recreate payment adapter."""
         data = {
             "type": "upi",
-            "upi_id": "demo@upi"
+            "vpa": "demo@upi"
         }
 
         payment = payment_from_dict(data)
@@ -635,25 +645,26 @@ class TestCompositeInventory(unittest.TestCase):
 
 
 class TestAbstractFactory(unittest.TestCase):
-    """Tests for product factory abstraction."""
-
     def test_food_product_factory(self):
-        product = ProductFactory.create_food_product(
-            "F001", "Sandwich", 50.0, 10
+        """FoodKiosk should create FoodProduct via factory."""
+        product = ProductFactory.create_product(
+            "FoodKiosk", "Cola", 40.0, 10
         )
 
         self.assertIsInstance(product, FoodProduct)
 
     def test_pharmacy_product_factory(self):
-        product = ProductFactory.create_pharmacy_product(
-            "P001", "Paracetamol", 25.0, 20
+        """PharmacyKiosk should create PharmacyProduct via factory."""
+        product = ProductFactory.create_product(
+            "PharmacyKiosk", "Aspirin", 12.0, 50
         )
 
         self.assertIsInstance(product, PharmacyProduct)
 
     def test_emergency_product_factory(self):
-        product = ProductFactory.create_emergency_product(
-            "E001", "Relief Kit", 0.0, 100
+        """EmergencyKiosk should create EmergencyProduct via factory."""
+        product = ProductFactory.create_product(
+            "EmergencyKiosk", "Ration", 0.0, 100
         )
 
         self.assertIsInstance(product, EmergencyProduct)
@@ -715,13 +726,13 @@ class TestStatePattern(unittest.TestCase):
 
     def test_maintenance_state(self):
         """Kiosk should support maintenance mode."""
-        self.kiosk.set_state(MaintenanceState())
+        self.kiosk.set_mode("MAINTENANCE")
 
         self.assertFalse(self.kiosk.is_operational())
 
     def test_offline_state(self):
         """Offline state should disable operations."""
-        self.kiosk.set_state(OfflineState())
+        self.kiosk.set_mode("OFFLINE")
 
         self.assertFalse(self.kiosk.is_operational())
 
@@ -732,28 +743,28 @@ class TestPricingStrategies(unittest.TestCase):
     def test_standard_pricing(self):
         pricing = PricingContext(StandardPricing())
 
-        result = pricing.calculate_price(100.0)
+        result = pricing.get_price(100.0)
 
         self.assertEqual(result, 100.0)
 
     def test_discounted_pricing(self):
         pricing = PricingContext(DiscountedPricing(20))
 
-        result = pricing.calculate_price(100.0)
+        result = pricing.get_price(100.0)
 
         self.assertEqual(result, 80.0)
 
     def test_emergency_pricing(self):
         pricing = PricingContext(EmergencyPricing())
 
-        result = pricing.calculate_price(100.0)
+        result = pricing.get_price(100.0)
 
-        self.assertGreaterEqual(result, 100.0)
+        self.assertEqual(result, 0.0)
 
     def test_surge_pricing(self):
         pricing = PricingContext(SurgePricing(1.5))
 
-        result = pricing.calculate_price(100.0)
+        result = pricing.get_price(100.0)
 
         self.assertEqual(result, 150.0)
 

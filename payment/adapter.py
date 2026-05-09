@@ -62,6 +62,18 @@ class DigitalWalletAPI:
         return True
 
 
+class CashValidatorAPI:
+    """Raw Cash/Coin API — incompatible with PaymentProcessor interface."""
+
+    def insert_cash(self, tray_id: str, rupees: float) -> bool:
+        print(f"  [Cash API] Received Rs.{rupees:.2f} in tray {tray_id}")
+        return True
+
+    def dispense_change(self, tray_id: str, rupees: float) -> bool:
+        print(f"  [Cash API] Dispensing Rs.{rupees:.2f} change to tray {tray_id}")
+        return True
+
+
 # ── Adapters ──────────────────────────────────────────────────────────────────
 
 class UPIAdapter(PaymentProcessor):
@@ -125,6 +137,26 @@ class DigitalWalletAdapter(PaymentProcessor):
         return {"type": "wallet", "wallet_id": self._wallet_id}
 
 
+class CashAdapter(PaymentProcessor):
+    """ADAPTER: Translates CashValidatorAPI → PaymentProcessor."""
+
+    def __init__(self, tray_id: str = "TRAY-01"):
+        self._api     = CashValidatorAPI()
+        self._tray_id = tray_id
+
+    def process_payment(self, amount: float, user_id: str) -> bool:
+        return self._api.insert_cash(self._tray_id, amount)
+
+    def refund_payment(self, transaction_id: str, amount: float) -> bool:
+        return self._api.dispense_change(self._tray_id, amount)
+
+    def get_provider_name(self) -> str:
+        return f"Cash/Coin ({self._tray_id})"
+
+    def to_dict(self) -> dict:
+        return {"type": "cash", "tray_id": self._tray_id}
+
+
 # ── Restore from saved dict ───────────────────────────────────────────────────
 
 def payment_from_dict(d: dict) -> PaymentProcessor:
@@ -136,4 +168,6 @@ def payment_from_dict(d: dict) -> PaymentProcessor:
         return CardAdapter(d["token"])
     elif t == "wallet":
         return DigitalWalletAdapter(d["wallet_id"])
+    elif t == "cash":
+        return CashAdapter(d.get("tray_id", "TRAY-01"))
     return UPIAdapter("default@upi")

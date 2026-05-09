@@ -66,10 +66,10 @@ class RefundCommand(Command):
 
         # Phase 4: Reintegrate stock into available inventory
         has_item_reference = self._item is not None
-        has_stock_attribute = hasattr(self._item, '_stock')
+        has_stock_attribute = hasattr(self._item, '_total_stock')
         
         if has_item_reference and has_stock_attribute:
-            self._item._stock += 1
+            self._item._total_stock += 1
             
         self._refund_done = True
 
@@ -106,7 +106,7 @@ class RefundCommand(Command):
 
     def undo(self):
         """Reverse a refund — re-deduct stock."""
-        if self._refund_done and self._item and hasattr(self._item, '_stock'):
-            self._item._stock = max(0, self._item._stock - 1)
+        if self._refund_done and self._item and hasattr(self._item, '_total_stock'):
+            self._item._total_stock = max(0, self._item._total_stock - 1)
         self.status = "UNDONE"
         print(f"  [Rollback] Refund of '{self.item_name}' reversed.")
