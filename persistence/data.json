@@ -8,7 +8,7 @@
       "mode": "ACTIVE",
       "payment": {
         "type": "upi",
-        "vpa": "user@paytm"
+        "vpa": "we"
       },
       "hardware_modules": [
         "dispenser",
@@ -39,7 +39,7 @@
           "product_id": "F003",
           "name": "Chips",
           "price": 25.0,
-          "stock": 40,
+          "stock": 38,
           "requires_refrigeration": false,
           "type": "product"
         },
@@ -52,14 +52,14 @@
               "product_id": "FC1",
               "name": "Sandwich",
               "price": 60.0,
-              "stock": 10,
+              "stock": 9,
               "requires_refrigeration": true
             },
             {
               "product_id": "FC2",
               "name": "Chips",
               "price": 25.0,
-              "stock": 30,
+              "stock": 29,
               "requires_refrigeration": false
             }
           ],
@@ -247,12 +247,47 @@
       "timestamp": "2026-04-29 16:38:55",
       "status": "SUCCESS",
       "type": "PURCHASE"
+    },
+    {
+      "txn_id": "733A324B",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "234",
+      "item": "Chips",
+      "amount": 25.0,
+      "provider": "Wallet (334333)",
+      "timestamp": "2026-05-09 11:47:14",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "1F390E0C",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "234",
+      "item": "Chips",
+      "amount": 0.0,
+      "provider": "Wallet (334333)",
+      "timestamp": "2026-05-09 11:47:14",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
+    },
+    {
+      "txn_id": "766B2F10",
+      "kiosk_id": "KIOSK-01",
+      "user_id": "3434",
+      "item": "Meal Combo",
+      "amount": 76.5,
+      "provider": "UPI (we)",
+      "timestamp": "2026-05-09 11:49:17",
+      "status": "SUCCESS",
+      "type": "PURCHASE"
     }
   ],
   "config": {},
   "events": [
     "[2026-04-29 16:37:43] [KIOSK-01] RESTOCKED: 'iceslas' +1 units",
     "[2026-04-29 16:38:55] [KIOSK-01] LOW STOCK: 'iceslas' has only 0 units left",
-    "[2026-04-29 16:38:55] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 purchase limits enforced"
+    "[2026-04-29 16:38:55] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 purchase limits enforced",
+    "[2026-05-09 11:47:14] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 restrictions applied",
+    "[2026-05-09 11:49:17] [KIOSK-01] EMERGENCY MODE ACTIVATED \u2014 restrictions applied"
   ]
 }
